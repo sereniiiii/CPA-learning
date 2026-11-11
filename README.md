@@ -117,3 +117,5 @@ cd CPA-learning && git checkout data
 - Hobby 套餐仅限个人非商业用途；一旦收费或接商业客户需升级 Pro
 - `GH_TOKEN` 只存在于 Vercel 环境变量，绝不能写进前端代码
 - 删页面的操作会写入 git 历史，可回滚，不是真删除
+
+<!-- 触发重新部署以应用环境变量 -->
