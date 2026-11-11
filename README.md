@@ -119,3 +119,5 @@ cd CPA-learning && git checkout data
 - 删页面的操作会写入 git 历史，可回滚，不是真删除
 
 <!-- 触发重新部署以应用环境变量 -->
+
+<!-- 触发重新部署：修正 Vercel 框架预设 -->
