@@ -150,12 +150,8 @@ async function commitFiles(
   const treeEntries: Array<Record<string, string>> = []
   for (const file of files) {
     if (file.delete) {
-      treeEntries.push({
-        path: file.path,
-        mode: '100644',
-        type: 'blob',
-        sha: '0000000000000000000000000000000000000000',
-      })
+      // 删除文件：sha 传 null 表示从树中移除该路径
+      treeEntries.push({ path: file.path, mode: '100644', type: 'blob', sha: null } as Record<string, string>)
       continue
     }
     const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content, 'utf8')
