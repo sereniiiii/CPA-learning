@@ -123,3 +123,5 @@ cd CPA-learning && git checkout data
 <!-- 触发重新部署：修正 Vercel 框架预设 -->
 
 <!-- 修正环境变量格式 -->
+
+<!-- 关闭 Vercel 部署门禁，保留应用层口令鉴权 -->
