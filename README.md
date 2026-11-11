@@ -121,3 +121,5 @@ cd CPA-learning && git checkout data
 <!-- 触发重新部署以应用环境变量 -->
 
 <!-- 触发重新部署：修正 Vercel 框架预设 -->
+
+<!-- 修正环境变量格式 -->
