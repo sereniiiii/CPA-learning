@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { applySecurityHeaders, isAuthenticated, unauthorized } from './_lib/auth'
+import { applySecurityHeaders, isAuthenticated, unauthorized } from './_lib/auth.js'
 import {
   createPageRecord,
   deletePageRecord,
@@ -7,7 +7,7 @@ import {
   readIndex,
   slugify,
   writePage,
-} from './_lib/github'
+} from './_lib/github.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applySecurityHeaders(res)

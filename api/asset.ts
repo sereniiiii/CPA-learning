@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { applySecurityHeaders, isAuthenticated, unauthorized } from './_lib/auth'
-import { listAssets, readBinary, writeAsset } from './_lib/github'
+import { applySecurityHeaders, isAuthenticated, unauthorized } from './_lib/auth.js'
+import { listAssets, readBinary, writeAsset } from './_lib/github.js'
 import { createHash } from 'node:crypto'
 
 const ASSET_DIR = 'data/assets'

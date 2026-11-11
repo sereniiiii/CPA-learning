@@ -6,7 +6,7 @@ import {
   isAuthenticated,
   setSessionCookie,
   unauthorized,
-} from './_lib/auth'
+} from './_lib/auth.js'
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   applySecurityHeaders(res)
