@@ -300,19 +300,9 @@ export function PointView({
                       <span className="muted small">{ex.type}</span>
                     )}
                     <div style={{ flex: 1 }} />
-                    {ans ? (
-                      <span className="example-answer" style={{ marginTop: 0 }}>
-                        答案 <b>{ans}</b>
-                      </span>
-                    ) : (
-                      <span
-                        className="example-answer example-answer-none"
-                        style={{ marginTop: 0 }}
-                        title="计算分析题的答案见原书解析"
-                      >
-                        答案见解析
-                      </span>
-                    )}
+                    <span className="muted small">
+                      {meta ? `${meta.volume} · PDF 第${meta.pdfPage}页` : ''}
+                    </span>
                   </div>
                   <img
                     src={learningApi.shotUrl(name, subjectId)}
@@ -320,9 +310,27 @@ export function PointView({
                     loading="lazy"
                     onClick={() => setZoomedExample(name)}
                   />
-                  {meta?.label && (
-                    <figcaption>{meta.label.slice(0, 60)}</figcaption>
-                  )}
+                  {/* 答案紧贴图片下沿 —— 图片底部就是教材的解析，
+                      答案接在解析后面，读起来是一条连贯的流 */}
+                  <div className="example-answer-row">
+                    {ans ? (
+                      <span className="example-answer">
+                        答案 <b>{ans}</b>
+                      </span>
+                    ) : (
+                      <span
+                        className="example-answer example-answer-none"
+                        title="计算分析题的答案见上方原书解析"
+                      >
+                        答案见上方解析
+                      </span>
+                    )}
+                    {meta?.label && (
+                      <span className="example-caption">
+                        {meta.label.slice(0, 46)}
+                      </span>
+                    )}
+                  </div>
                 </figure>
               )
             })}
