@@ -3195,3 +3195,204 @@ a { color: var(--blue); }
   font-size: 18px;
   line-height: 1;
 }
+
+/* ============================================================
+   跨页接续 —— 两块图上下拼在一起，中间标出接续处
+   ============================================================ */
+
+.block-seam {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 2px;
+}
+
+.block-seam-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line-2);
+  background-image: linear-gradient(
+    90deg,
+    var(--line-2) 50%,
+    transparent 50%
+  );
+  background-size: 7px 1px;
+}
+
+.block-seam .muted {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* 接续的两块占满整行，保证上下相邻 */
+.block-card.is-joined {
+  grid-column: 1 / -1;
+}
+
+/* ============================================================
+   图片标注层
+   ============================================================ */
+
+.annot {
+  margin-top: 6px;
+}
+
+.annot-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  margin-bottom: 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.annot-tools {
+  display: flex;
+  gap: 3px;
+}
+
+.annot-tool {
+  padding: 3px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  transition: all 0.13s;
+}
+
+.annot-tool:hover {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.annot-tool.is-on {
+  background: var(--blue);
+  color: #fff;
+}
+
+.annot-colors {
+  display: flex;
+  gap: 4px;
+}
+
+.annot-color {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  transition: transform 0.12s;
+}
+
+.annot-color:hover {
+  transform: scale(1.15);
+}
+
+.annot-color.is-on {
+  border-color: var(--ink);
+  transform: scale(1.15);
+}
+
+.annot-note-input {
+  flex: 1;
+  min-width: 130px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+}
+
+.annot-note-input:focus {
+  border-color: var(--blue);
+}
+
+.annot-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  user-select: none;
+}
+
+.annot-wrap.is-drawable {
+  cursor: crosshair;
+}
+
+.annot-wrap.is-note {
+  cursor: copy;
+}
+
+.annot-wrap img {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.annot-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.annot-note {
+  position: absolute;
+  transform: translate(6px, 6px);
+  max-width: 190px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(18, 22, 28, 0.22);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #12161c;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.annot-count {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(18, 22, 28, 0.72);
+  color: #fff;
+  font-size: 10.5px;
+  line-height: 1.6;
+  z-index: 3;
+}
+
+.annot-enter {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink-3);
+  font-size: 11.5px;
+  text-align: left;
+  transition: all 0.13s;
+}
+
+.annot-enter:hover {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.badge-mark {
+  background: var(--purple-soft);
+  color: var(--purple);
+}

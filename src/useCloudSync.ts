@@ -3,7 +3,10 @@ import { EMPTY_LEARNING, EMPTY_USER_DATA, LearningState, UserData } from './type
 
 const LOCAL_KEY = 'cpa-learning-state'
 const LOCAL_USER_KEY = 'cpa-user-data'
-const SYNC_DEBOUNCE = 1500
+// 防抖时长：连续答题时合并成一次写。
+// 原来 1.5 秒 → 每答一题就是一次 commit + 一次 API 调用；
+// 4 秒能覆盖大多数连续作答，又不至于让「关页面就丢」。
+const SYNC_DEBOUNCE = 4000
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'offline'
 
@@ -62,6 +65,7 @@ export function useCloudSync(enabled: boolean): CloudSync {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
 
   const timer = useRef<number | null>(null)
+  const retryTimer = useRef<number | null>(null)
   const pending = useRef<{ learning: LearningState; userData: UserData } | null>(null)
   const loaded = useRef(false)
 
@@ -111,10 +115,16 @@ export function useCloudSync(enabled: boolean): CloudSync {
     }
   }, [enabled])
 
+  /**
+   * 写云端。
+   *
+   * 注意：**失败时不能清空 pending** —— 之前是先清空再写，
+   * 一旦网络抖动，那次作答就彻底丢了（本地有但云端没有）。
+   * 现在失败会保留 pending 并在 6 秒后重试。
+   */
   const flush = useCallback(async () => {
     const data = pending.current
     if (!data) return
-    pending.current = null
     setStatus('saving')
     try {
       const res = await fetch('/api/userdata', {
@@ -123,13 +133,26 @@ export function useCloudSync(enabled: boolean): CloudSync {
         body: JSON.stringify(data),
       })
       if (!res.ok) throw new Error(`同步失败（${res.status}）`)
+      // 只有成功才清 pending（且要确认期间没有新的改动）
+      if (pending.current === data) pending.current = null
       setStatus('saved')
       setLastSyncedAt(new Date().toISOString())
       setTimeout(() => setStatus((s) => (s === 'saved' ? 'idle' : s)), 2000)
     } catch {
       setStatus('error')
+      // 保留 pending，稍后重试
+      if (retryTimer.current) window.clearTimeout(retryTimer.current)
+      retryTimer.current = window.setTimeout(() => {
+        void flushRef.current?.()
+      }, 6000)
     }
   }, [])
+
+  // flush 自己引用自己（重试），用 ref 打破循环依赖
+  const flushRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    flushRef.current = () => void flush()
+  }, [flush])
 
   const schedule = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current)
@@ -166,10 +189,14 @@ export function useCloudSync(enabled: boolean): CloudSync {
           [JSON.stringify(pending.current)],
           { type: 'application/json' },
         )
-        navigator.sendBeacon?.('/api/userdata', blob)
+        const ok = navigator.sendBeacon?.('/api/userdata', blob)
+        if (ok) pending.current = null
       }
     }
     window.addEventListener('pagehide', onLeave)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') onLeave()
+    })
     return () => window.removeEventListener('pagehide', onLeave)
   }, [])
 

@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   Chapter,
   LearningState,
   Point,
   UserData,
 } from '../types'
-import { ErrorCause, Example, UserQuestion, pointId } from '../types'
+import { ErrorCause, Example, ImageMark, UserQuestion, pointId } from '../types'
 import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
 import { OverlayEditor, QuestionEditor } from './EditPanel'
 import { ExerciseWorkbench } from './ExerciseWorkbench'
 import { AnnotationComposer } from './AnnotationComposer'
+import { ImageAnnotator } from './ImageAnnotator'
 
 interface Props {
   subjectId: string
@@ -326,6 +327,11 @@ export function PointView({
             subjectId={subjectId}
             index={blockIndex}
             loading={blocksLoading}
+            pointId={pid}
+            pointTitle={displayTitle}
+            chapterId={chapter.id}
+            userData={userData}
+            onUserDataChange={onUserDataChange}
           />
         </section>
       )}
@@ -640,13 +646,26 @@ function BlockGallery({
   subjectId,
   index,
   loading,
+  pointId,
+  pointTitle,
+  chapterId,
+  userData,
+  onUserDataChange,
 }: {
   blocks: string[]
   subjectId: string
   index: Record<string, BlockMeta>
   loading: boolean
+  pointId: string
+  pointTitle: string
+  chapterId: string
+  userData: UserData
+  onUserDataChange: (d: UserData) => void
 }) {
   const [zoomed, setZoomed] = useState<string | null>(null)
+  /** 正在标注的块 */
+  const [annotatingBlock, setAnnotatingBlock] = useState<string | null>(null)
+  const [blockMarks, setBlockMarks] = useState<ImageMark[]>([])
 
   const KIND_LABEL: Record<string, string> = {
     point: '知识点',
@@ -663,8 +682,27 @@ function BlockGallery({
           const kind = meta?.kind ?? 'point'
           // 跨页标记：这个考点的第几块
           const pageMark = blocks.length > 1 ? `第 ${i + 1}/${blocks.length} 块` : ''
+          // 跨页接续：同一考点、上一块在别的页 → 两块上下拼在一起看
+          const prevMeta = i > 0 ? index[blocks[i - 1]] : null
+          const isCrossPage = !!prevMeta && !!meta && prevMeta.pdfPage !== meta.pdfPage
+          const prevCross = !!(
+            i > 0 &&
+            index[blocks[i - 1]] &&
+            meta &&
+            index[blocks[i - 1]].pdfPage !== meta.pdfPage
+          )
           return (
-            <figure key={name} className="block-card">
+            <Fragment key={name}>
+            {isCrossPage && (
+              <div className="block-seam">
+                <span className="block-seam-line" />
+                <span className="muted small">
+                  接上页 · 第 {prevMeta!.volume} PDF 第 {prevMeta!.pdfPage} 页
+                </span>
+                <span className="block-seam-line" />
+              </div>
+            )}
+            <figure className={`block-card${isCrossPage ? ' is-joined' : ''}`}>
               <div className="block-card-head">
                 <span className={`block-kind is-${kind}`}>{KIND_LABEL[kind] ?? kind}</span>
                 <span className="muted small">
@@ -679,8 +717,67 @@ function BlockGallery({
                 alt={meta?.label ?? '教材知识块'}
                 onClick={() => setZoomed(name)}
               />
+              {annotatingBlock === name ? (
+                <ImageAnnotator
+                  imageUrl={learningApi.shotUrl(name, subjectId)}
+                  alt={meta?.label ?? '教材知识块'}
+                  marks={blockMarks}
+                  onChange={(m) => {
+                    setBlockMarks(m)
+                    // 标注挂到该考点的批注上
+                    const annoId = `anno-mark-${pointId}-${name}`
+                    const prev = userData.annotations[annoId]
+                    onUserDataChange({
+                      ...userData,
+                      annotations: {
+                        ...userData.annotations,
+                        [annoId]: {
+                          ...(prev ?? {
+                            id: annoId,
+                            subjectId,
+                            chapterId,
+                            pointId,
+                            exampleId: null,
+                            content: '',
+                            title: `${pointTitle} · 图上标注`,
+                            tags: ['图上标注'],
+                            source: {
+                              volume: meta?.volume ?? '',
+                              pdfPage: meta?.pdfPage ?? 0,
+                              printPage: 0,
+                            },
+                            createdAt: new Date().toISOString(),
+                          }),
+                          marks: m,
+                          updatedAt: new Date().toISOString(),
+                        },
+                      },
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }}
+                />
+              ) : (
+                <button
+                  className="annot-enter"
+                  onClick={() => {
+                    setAnnotatingBlock(name)
+                    const annoId = `anno-mark-${pointId}-${name}`
+                    setBlockMarks(userData.annotations[annoId]?.marks ?? [])
+                  }}
+                >
+                  ✎ 在图上标注
+                </button>
+              )}
               {meta?.label && <figcaption>{meta.label.slice(0, 60)}</figcaption>}
             </figure>
+            {prevCross && (
+              <div className="block-seam block-seam--end">
+                <span className="block-seam-line" />
+                <span className="muted small">本页到此，下一块接续</span>
+                <span className="block-seam-line" />
+              </div>
+            )}
+            </Fragment>
           )
         })}
       </div>

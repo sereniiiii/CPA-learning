@@ -340,9 +340,42 @@ export interface Annotation {
     pdfPage: number
     printPage: number
   } | null
+  /**
+   * 图上标注（画笔/框选/便签）。
+   *
+   * 坐标用**百分比**而不是像素 —— 图片缩放时标注要跟着走，
+   * 不同屏幕宽度下位置才一致。
+   */
+  marks?: ImageMark[]
   createdAt: string
   updatedAt: string
 }
+
+/** 图片上的一条标注 */
+export type ImageMark =
+  | {
+      kind: 'stroke'
+      /** 笔迹点（百分比坐标） */
+      points: Array<{ x: number; y: number }>
+      color: string
+      width: number
+    }
+  | {
+      kind: 'box'
+      x: number
+      y: number
+      w: number
+      h: number
+      color: string
+    }
+  | {
+      kind: 'note'
+      /** 便签位置（百分比） */
+      x: number
+      y: number
+      text: string
+      color: string
+    }
 
 /** 用户数据（与学习状态一起同步到云端） */
 export interface UserData {

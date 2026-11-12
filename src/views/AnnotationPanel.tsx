@@ -174,6 +174,11 @@ export function AnnotationPanel({
                           {t}
                         </span>
                       ))}
+                    {(a.marks?.length ?? 0) > 0 && (
+                      <span className="badge badge-mark">
+                        图上 {a.marks!.length} 处标注
+                      </span>
+                    )}
                       <div style={{ flex: 1 }} />
                       <button
                         className="tool-btn"
