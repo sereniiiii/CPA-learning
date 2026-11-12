@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.serenii.cpa-backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/seren/WorkBuddy/2026-11-12-00-20-32/study-hub/scripts/local-backup.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>http_proxy</key>
+        <string>http://127.0.0.1:65532</string>
+        <key>https_proxy</key>
+        <string>http://127.0.0.1:65532</string>
+        <key>HTTP_PROXY</key>
+        <string>http://127.0.0.1:65532</string>
+        <key>HTTPS_PROXY</key>
+        <string>http://127.0.0.1:65532</string>
+        <key>GIT_TERMINAL_PROMPT</key>
+        <string>0</string>
+    </dict>
+
+    <!-- 每天 12:30 跑一次（错开整点，减少与 GitHub 请求高峰撞车） -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>12</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/seren/Library/Logs/cpa-backup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/seren/Library/Logs/cpa-backup.error.log</string>
+</dict>
+</plist>
