@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   Chapter,
-  Example,
   LearningState,
   Point,
   UserData,
@@ -50,6 +49,10 @@ export function PointView({
   const [addingQuestion, setAddingQuestion] = useState(false)
   const [annotating, setAnnotating] = useState(false)
   const [err, setErr] = useState('')
+  // 知识块索引：文件名 → 类型/来源页/标签
+  const [blockIndex, setBlockIndex] = useState<Record<string, BlockMeta>>({})
+  const [blocksLoading, setBlocksLoading] = useState(true)
+  const [zoomedExample, setZoomedExample] = useState<string | null>(null)
 
   useEffect(() => {
     setCause(null)
@@ -60,6 +63,21 @@ export function PointView({
       .then(setChapter)
       .catch((e) => setErr(String(e)))
   }, [chapterId, pointNum, subjectId])
+
+  useEffect(() => {
+    setBlocksLoading(true)
+    learningApi
+      .getBlockIndex(subjectId)
+      .then((map) => {
+        const out: Record<string, BlockMeta> = {}
+        for (const [name, meta] of Object.entries(map)) {
+          out[name] = meta
+        }
+        setBlockIndex(out)
+      })
+      .catch(() => {})
+      .finally(() => setBlocksLoading(false))
+  }, [subjectId])
 
   if (err) return <div className="view-loading is-error">{err}</div>
   if (!chapter) return <div className="view-loading">加载中…</div>
@@ -77,6 +95,11 @@ export function PointView({
       break
     }
   }
+
+  // 该考点的例题块（kind=example）
+  const exampleBlocks = point
+    ? (point.blocks ?? []).filter((b) => blockIndex[b]?.kind === 'example')
+    : []
 
   if (!point) {
     return (
@@ -223,7 +246,12 @@ export function PointView({
               {point.source.volume} · 印刷页 {point.source.printPage}
             </span>
           </div>
-          <BlockGallery blocks={point.blocks} subjectId={subjectId} />
+          <BlockGallery
+            blocks={point.blocks}
+            subjectId={subjectId}
+            index={blockIndex}
+            loading={blocksLoading}
+          />
         </section>
       )}
 
@@ -247,16 +275,42 @@ export function PointView({
         </section>
       )}
 
-      {/* 教材例题 —— 同一页的例题合并成一张图，不重复显示 */}
-      {point.examples.length > 0 && (
+      {/* 教材例题 —— 用切好的例题块，不显示整页 */}
+      {exampleBlocks.length > 0 && (
         <section className="examples">
           <h2 className="section-title">教材例题（{point.examples.length}）</h2>
           <p className="muted small">
-            随讲随练的即时验证，挂在所属考点下 · 同一页的例题合并显示
+            随讲随练的即时验证，挂在所属考点下
           </p>
-          {groupExamplesByPage(point.examples).map((g) => (
-            <ExampleCard key={g.page} examples={g.items} />
-          ))}
+          <div className="block-grid" style={{ marginTop: 10 }}>
+            {exampleBlocks.map((name) => {
+              const meta = blockIndex[name]
+              return (
+                <figure key={name} className="block-card">
+                  <div className="block-card-head">
+                    <span className="block-kind is-example">例题</span>
+                    <span className="muted small">
+                      {meta ? `${meta.volume} · PDF 第${meta.pdfPage}页` : ''}
+                    </span>
+                  </div>
+                  <img
+                    src={learningApi.shotUrl(name, subjectId)}
+                    alt={meta?.label ?? '教材例题'}
+                    loading="lazy"
+                    onClick={() => setZoomedExample(name)}
+                  />
+                  {meta?.label && (
+                    <figcaption>{meta.label.slice(0, 60)}</figcaption>
+                  )}
+                </figure>
+              )
+            })}
+          </div>
+          {zoomedExample && (
+            <div className="lightbox" onClick={() => setZoomedExample(null)}>
+              <img src={learningApi.shotUrl(zoomedExample, subjectId)} alt="" />
+            </div>
+          )}
         </section>
       )}
 
@@ -323,6 +377,7 @@ export function PointView({
             章末跨考点综合检验 —— 左边看题，右边写解答
           </p>
           <ExerciseWorkbench
+            subjectId={subjectId}
             chapterId={chapter.id}
             pages={chapter.exercises}
             userData={userData}
@@ -405,27 +460,15 @@ export function PointView({
 function BlockGallery({
   blocks,
   subjectId,
+  index,
+  loading,
 }: {
   blocks: string[]
   subjectId: string
+  index: Record<string, BlockMeta>
+  loading: boolean
 }) {
-  const [index, setIndex] = useState<Record<string, BlockMeta>>({})
   const [zoomed, setZoomed] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    learningApi
-      .getBlockIndex(subjectId)
-      .then((map) => {
-        const out: Record<string, BlockMeta> = {}
-        for (const [name, meta] of Object.entries(map)) {
-          out[name] = meta
-        }
-        setIndex(out)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [subjectId])
 
   const KIND_LABEL: Record<string, string> = {
     point: '知识点',
@@ -481,64 +524,6 @@ interface BlockMeta {
 
 
 
-/** 把同一页上的例题归为一组，避免重复显示同一张截图 */
-function groupExamplesByPage(examples: Example[]) {
-  const map = new Map<number, Example[]>()
-  for (const ex of examples) {
-    const page = ex.source.pdfPage
-    if (!map.has(page)) map.set(page, [])
-    map.get(page)!.push(ex)
-  }
-  return [...map.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([page, items]) => ({ page, items }))
-}
-
-function ExampleCard({ examples }: { examples: Example[] }) {
-  const [shotFailed, setShotFailed] = useState(false)
-  const [zoomed, setZoomed] = useState(false)
-  const first = examples[0]
-  const name = shotNameFor(first.source)
-  const nos = examples.map((e) => e.no).join('、')
-  const types = [...new Set(examples.map((e) => e.type))].join(' / ')
-
-  return (
-    <article className="example">
-      <div className="example-head">
-        <span className="example-no">
-          【例题{nos}·{types}】
-        </span>
-        <span className="muted small">
-          {first.source.volume} 印刷页 {first.source.printPage}
-        </span>
-        {examples.every((e) => e.status === '待核') && (
-          <span className="badge badge-todo">待核</span>
-        )}
-      </div>
-      {!shotFailed ? (
-        <figure className="shot">
-          <img
-            src={learningApi.shotUrl(name)}
-            alt="原书页面截图"
-            loading="lazy"
-            onClick={() => setZoomed(true)}
-            onError={() => setShotFailed(true)}
-          />
-          <figcaption>原书截图（含完整题干、选项与解析）· 点击放大</figcaption>
-        </figure>
-      ) : (
-        <p className="muted small">该页截图暂不可用，往前后翻一页看看。</p>
-      )}
-
-      {zoomed && (
-        <div className="lightbox" onClick={() => setZoomed(false)}>
-          <img src={learningApi.shotUrl(name)} alt="" />
-        </div>
-      )}
-    </article>
-  )
-}
-
 function findNeighbor(chapter: Chapter, pointNum: number, dir: number): number | null {
   const all = chapter.sections.flatMap((s) => s.points)
   const idx = all.findIndex((p) => p.num === pointNum)
@@ -548,7 +533,4 @@ function findNeighbor(chapter: Chapter, pointNum: number, dir: number): number |
 }
 
 /** 册别 + PDF 页码 → 截图文件名 */
-function shotNameFor(source: { volume: string; pdfPage: number }): string {
-  const vol = { 上册: 'up', 中册: 'mid', 下册: 'down' }[source.volume] ?? 'up'
-  return `${vol}-${String(source.pdfPage).padStart(4, '0')}.jpg`
-}
+

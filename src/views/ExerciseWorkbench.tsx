@@ -14,13 +14,18 @@ const VOL_MAP: Record<string, string> = { 上册: 'up', 中册: 'mid', 下册: '
  * 答题框支持文字、表格、图片、高亮、颜色 —— 内容以 Tiptap JSON 存储。
  */
 export function ExerciseWorkbench({
+  subjectId,
   chapterId,
   pages,
   userData,
   onUserDataChange,
 }: {
+  subjectId: string
   chapterId: string
-  pages: Array<{ source: { volume: string; pdfPage: number; printPage: number } }>
+  pages: Array<{
+    source: { volume: string; pdfPage: number; printPage: number }
+    block?: string
+  }>
   userData: UserData
   onUserDataChange: (d: UserData) => void
 }) {
@@ -56,6 +61,8 @@ export function ExerciseWorkbench({
                     volume={ex.source.volume}
                     page={ex.source.pdfPage}
                     printPage={ex.source.printPage}
+                    block={ex.block}
+                    subjectId={subjectId}
                   />
                 </div>
                 <div className="workbench-right">
@@ -108,15 +115,20 @@ function ShotPanel({
   volume,
   page,
   printPage,
+  block,
+  subjectId,
 }: {
   volume: string
   page: number
   printPage: number
+  block?: string
+  subjectId: string
 }) {
   const [zoomed, setZoomed] = useState(false)
   const [failed, setFailed] = useState(false)
+  // 习题页有专门的裁剪块（去掉页眉水印），优先用它
   const vol = VOL_MAP[volume] ?? 'up'
-  const name = `${vol}-${String(page).padStart(4, '0')}.jpg`
+  const name = block ?? `${vol}-${String(page).padStart(4, '0')}.png`
 
   return (
     <>
@@ -127,7 +139,7 @@ function ShotPanel({
       ) : (
         <figure className="shot">
           <img
-            src={learningApi.shotUrl(name)}
+            src={learningApi.shotUrl(name, subjectId)}
             alt={`${volume} 印刷页 ${printPage}`}
             loading="lazy"
             onClick={() => setZoomed(true)}
@@ -140,7 +152,7 @@ function ShotPanel({
       )}
       {zoomed && (
         <div className="lightbox" onClick={() => setZoomed(false)}>
-          <img src={learningApi.shotUrl(name)} alt="" />
+          <img src={learningApi.shotUrl(name, subjectId)} alt="" />
         </div>
       )}
     </>
