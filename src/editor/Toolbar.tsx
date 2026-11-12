@@ -140,7 +140,6 @@ export function Toolbar({
   const [tableOpen, setTableOpen] = useState(false)
   const [highlightOpen, setHighlightOpen] = useState(false)
   const [colorOpen, setColorOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
 
   const btn = (active: boolean) => `tb-btn${active ? ' is-active' : ''}`
 
