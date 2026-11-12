@@ -54,9 +54,9 @@ export function TodayView({
   if (queue.length === 0) {
     return (
       <div className="today-empty">
-        <p className="today-empty-title">今日队列已清空</p>
+        <p className="today-empty-title">今天没有待处理的内容</p>
         <p className="muted">
-          没有到期的重测，也没有未解决的错题。去「库」里学新内容，或明天再来。
+          没有到期的重测，也没有未解决的错题。去「教材库」学新内容，或明天再来。
         </p>
       </div>
     )
@@ -65,7 +65,7 @@ export function TodayView({
   return (
     <div className="today">
       <div className="today-head">
-        <h1 className="page-title">今日</h1>
+        <h1 className="page-title">全书概览</h1>
         <div className="today-counts">
           <span className="count-chip is-due">{counts.due} 到期</span>
           <span className="count-chip is-wrong">{counts.wrong} 错题</span>
@@ -74,8 +74,8 @@ export function TodayView({
       </div>
 
       <p className="today-hint">
-        共 {queue.length} 个考点待处理 · 全书 {totalPoints} 个考点 ·
-        建议一次做一个闭环（15–25 分钟）
+        全书 {chapters.length} 章 · {totalPoints} 个考点 ·
+        今天有 {queue.length} 个待处理，建议一次做一个闭环（15–25 分钟）
       </p>
 
       <button className="start-btn" onClick={onStart}>
@@ -86,7 +86,7 @@ export function TodayView({
           这里刻意不铺开全部考点：那是「教材库」的内容，铺两份就是重复。 */}
       <div className="today-overview">
         <div className="today-overview-head">
-          <h4 className="today-group-title">全书概览</h4>
+          <h4 className="today-group-title">按章浏览</h4>
           <span className="muted small">点章名进教材库</span>
         </div>
         <div className="today-chapter-rows">

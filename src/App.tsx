@@ -28,7 +28,7 @@ import { SubjectSwitcher } from './views/SubjectSwitcher'
 type Tab = 'today' | 'library' | 'subjective' | 'anno' | 'review' | 'wrong' | 'archive' | 'notes'
 
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'today', label: '今日' },
+  { id: 'today', label: '全书概览' },
   { id: 'library', label: '教材库' },
   { id: 'subjective', label: '主观题' },
   { id: 'anno', label: '批注' },
