@@ -28,6 +28,7 @@ VOL = {"上册": "up", "中册": "mid", "下册": "down"}
 def main():
     manifest = json.load(open(f"{BASE}/build/blocks/manifest.json", encoding="utf-8"))
     blocks = manifest["blocks"]
+    page_answers = manifest.get("pageAnswers", {})
 
     # 块按 (册, 页, 序) 排序
     def block_key(b):
@@ -100,6 +101,17 @@ def main():
                 return cid
         return None
 
+    # 按章聚合例题答案。
+    #
+    # 例题号是**每章重新从 01 开始**的（和考点编号一样），
+    # 所以答案必须按章归属 —— 全局混会把不同章的同号例题搞混。
+    chapter_answers = {}
+    for key, ans_map in page_answers.items():
+        vol, page = key.split("-")[0], int(key.split("-")[1])
+        cid = find_chapter(vol, page)
+        if cid:
+            chapter_answers.setdefault(cid, {}).update(ans_map)
+
     # 考点在章内的序号 → (章ID, 考点号)
     chapter_points = defaultdict(list)
     for bp in points_seq:
@@ -163,6 +175,11 @@ def main():
                                 "num": p["num"], "title": p["title"],
                                 "difficulty": p["difficulty"], "hot": p["hot"],
                                 "exampleCount": len(p["examples"]),
+                            "exampleAnswers": {
+                                str(e["no"]): chapter_answers.get(c["id"], {}).get(str(e["no"]))
+                                for e in p["examples"]
+                                if chapter_answers.get(c["id"], {}).get(str(e["no"]))
+                            },
                                 "blockCount": len(
                                     assignment.get((c["id"], s["num"], p["num"]), [])
                                 ),
@@ -202,9 +219,10 @@ def main():
                     b["file"].split("/")[-1]
                     for b in assignment.get((ch["id"], sec["num"], p["num"]), [])
                 ]
-                # 例题也带块
+                # 例题带答案（按章匹配题号）
+                chap_ans = chapter_answers.get(ch["id"], {})
                 for ex in p["examples"]:
-                    ex["blocks"] = []
+                    ex["answer"] = chap_ans.get(str(ex["no"]))
         json.dump(detail, open(f"{out}/subjects/cwc/chapters/{ch['id']}.json", "w",
                               encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 

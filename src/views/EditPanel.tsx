@@ -198,6 +198,29 @@ export function QuestionEditor({ question, onSave, onCancel }: QuestionEditorPro
   }
 
   const isChoice = draft.type === '单选题' || draft.type === '多选题'
+  const isMulti = draft.type === '多选题'
+
+  // 当前答案里的字母（选择题）
+  const answerLetters = isChoice
+    ? draft.answer
+        .toUpperCase()
+        .split('')
+        .filter((c) => c >= 'A' && c <= 'F')
+    : []
+
+  /** 点字母徽标：单选替换，多选切换 */
+  const toggleAnswer = (letter: string) => {
+    if (!isChoice) return
+    let letters: string[]
+    if (isMulti) {
+      letters = answerLetters.includes(letter)
+        ? answerLetters.filter((c) => c !== letter)
+        : [...answerLetters, letter].sort()
+    } else {
+      letters = answerLetters.includes(letter) ? [] : [letter]
+    }
+    setDraft({ ...draft, answer: letters.join('') })
+  }
 
   return (
     <div className="q-editor">
@@ -227,17 +250,44 @@ export function QuestionEditor({ question, onSave, onCancel }: QuestionEditorPro
 
       {isChoice && (
         <>
-          <label className="field-label">选项</label>
-          {draft.options.map((o, i) => (
-            <div key={i} className="q-option-row">
-              <span className="q-option-label">{String.fromCharCode(65 + i)}</span>
-              <input
-                className="overlay-input"
-                value={o}
-                onChange={(e) => setOption(i, e.target.value)}
-              />
-            </div>
-          ))}
+          <div className="q-option-head">
+            <span className="field-label" style={{ margin: 0 }}>
+              选项
+            </span>
+            <span className="muted small">
+              {isMulti ? '点字母徽标可多选设为答案' : '点字母徽标设为答案'}
+            </span>
+          </div>
+
+          <div className="q-option-grid">
+            {draft.options.map((o, i) => {
+              const letter = String.fromCharCode(65 + i)
+              const isAnswer = answerLetters.includes(letter)
+              return (
+                <div
+                  key={i}
+                  className={`q-option${isAnswer ? ' is-answer' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="q-option-badge"
+                    title={isAnswer ? '取消答案' : '设为答案'}
+                    onClick={() => toggleAnswer(letter)}
+                  >
+                    {letter}
+                  </button>
+                  <input
+                    className="q-option-input"
+                    value={o}
+                    placeholder={`选项 ${letter}`}
+                    onChange={(e) => setOption(i, e.target.value)}
+                  />
+                  {isAnswer && <span className="q-option-tick">✓</span>}
+                </div>
+              )
+            })}
+          </div>
+
           <div className="q-option-actions">
             {draft.options.length < 6 && (
               <button

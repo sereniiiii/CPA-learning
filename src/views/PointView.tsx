@@ -275,23 +275,44 @@ export function PointView({
         </section>
       )}
 
-      {/* 教材例题 —— 用切好的例题块，不显示整页 */}
+      {/* 教材例题 —— 用切好的例题块（题干+选项+解析），并标出教材答案 */}
       {exampleBlocks.length > 0 && (
         <section className="examples">
-          <h2 className="section-title">教材例题（{(point.examples ?? []).length}）</h2>
+          <h2 className="section-title">
+            教材例题（{(point.examples ?? []).length}）
+          </h2>
           <p className="muted small">
-            随讲随练的即时验证，挂在所属考点下
+            随讲随练的即时验证，挂在所属考点下 · 答案取自教材页脚的「例题-答案」
           </p>
           <div className="block-grid" style={{ marginTop: 10 }}>
             {exampleBlocks.map((name) => {
               const meta = blockIndex[name]
+              const no = meta?.exampleNo
+              const ex = (point.examples ?? []).find((e) => e.no === no)
+              const ans = ex?.answer
               return (
                 <figure key={name} className="block-card">
                   <div className="block-card-head">
-                    <span className="block-kind is-example">例题</span>
-                    <span className="muted small">
-                      {meta ? `${meta.volume} · PDF 第${meta.pdfPage}页` : ''}
+                    <span className="block-kind is-example">
+                      例题{no ?? ''}
                     </span>
+                    {ex?.type && (
+                      <span className="muted small">{ex.type}</span>
+                    )}
+                    <div style={{ flex: 1 }} />
+                    {ans ? (
+                      <span className="example-answer" style={{ marginTop: 0 }}>
+                        答案 <b>{ans}</b>
+                      </span>
+                    ) : (
+                      <span
+                        className="example-answer example-answer-none"
+                        style={{ marginTop: 0 }}
+                        title="计算分析题的答案见原书解析"
+                      >
+                        答案见解析
+                      </span>
+                    )}
                   </div>
                   <img
                     src={learningApi.shotUrl(name, subjectId)}

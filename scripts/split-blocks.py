@@ -30,7 +30,7 @@ from pypdf.generic import RectangleObject
 POINT_TITLE = re.compile(r'^考点\s*\d{1,2}\b')
 EXAMPLE_TITLE = re.compile(r'【\s*例题\s*(\d+)')
 SECTION_TITLE = re.compile(r'^第[一二三四五六七八九十]+节')
-ANSWER_ROW = re.compile(r'例题\s*[-－—]\s*答案')
+ANSWER_ROW = re.compile(r'例题.{0,4}答案')
 # 「解析」「点拨」这类小标签也要当切分点 ——
 # 否则上一块的正文会从它们中间被切开（比如页底的解析标签被切掉半行）。
 #
@@ -126,6 +126,31 @@ def render_page(pdf_path, png_path, width=1500):
     return png_size(png_path)
 
 
+def parse_answers(items):
+    """
+    从页面的「例题-答案」行解析出 例题号 → 答案。
+
+    格式：例题-答案 I 4.ABCD 5.ABCD
+    例题号是全书连续的（跨章接着排），可以直接对应到例题。
+    答案行可能被拆成多个文本块 → 按 y 坐标邻近合并。
+    """
+    rows = [it for it in items if ANSWER_ROW.search(it["text"])]
+    answers = {}
+    for row in rows:
+        text = row["text"]
+        y = row["y"]
+        # 同一行的其他块（答案常被拆开）
+        for it in items:
+            if it is row:
+                continue
+            if abs(it["y"] - y) < 3 and it["x"] > row["x"]:
+                text += " " + it["text"]
+        text = ANSWER_ROW.sub(" ", text)
+        for m in re.finditer(r"(\d{1,2})\s*[.．、]\s*([A-Za-z]{1,6})", text):
+            answers[int(m.group(1))] = m.group(2).upper()
+    return answers
+
+
 def crop_png(full_png, out_png, pdf_h, y_top, y_bottom):
     """
     从整页 PNG 里按像素裁出 [y_bottom, y_top] 这段。
@@ -172,6 +197,7 @@ def main():
     # 跨页上下文：考点/例题常跨页延续
     current_point = None      # "up-0027-00" 形式：册-页-序
     current_example = None
+    page_answers = {}        # "册-页" → {例题号: 答案}
 
     for vol in ("up", "mid", "down"):
         vdir = os.path.join(pages_root, vol)
@@ -193,6 +219,13 @@ def main():
             except Exception as exc:
                 print(f"  [{vol}] {fname} 读取失败：{exc}")
                 continue
+
+            # 收集本页的例题答案。
+            # 注意：例题号是**每章重新从 01 开始**的（和考点编号一样），
+            # 所以答案必须按页记录，归并时再按章聚合 —— 全局混会串章。
+            pa = parse_answers(items)
+            if pa:
+                page_answers[f"{vol}-{page_seq:04d}"] = {str(k): v for k, v in pa.items()}
 
             bounds = find_boundaries(items)
             stats["blocks"] += len(bounds) + (1 if bounds else 0)
@@ -291,8 +324,19 @@ def main():
                 print(f"  已处理 {stats['pages']} 页，产出 {stats['rendered']} 张", flush=True)
 
     with open(os.path.join(out_root, "manifest.json"), "w", encoding="utf-8") as f:
-        json.dump({"meta": {"generatedAt": date.today().isoformat()}, "blocks": manifest},
-                  f, ensure_ascii=False, indent=1)
+        json.dump(
+            {
+                "meta": {"generatedAt": date.today().isoformat()},
+                "blocks": manifest,
+                "pageAnswers": page_answers,
+            },
+            f,
+            ensure_ascii=False,
+            indent=1,
+        )
+
+    print(f"解析到答案 {sum(len(v) for v in page_answers.values())} 条"
+          f"（分布在 {len(page_answers)} 页）")
 
     print(f"完成：{stats['pages']} 页 → {stats['rendered']} 张切块")
     print(f"→ {out_root}")

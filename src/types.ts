@@ -94,6 +94,8 @@ export interface SourceRef {
 export interface Example {
   no: number
   type: string
+  /** 教材给出的答案（选择题为字母，如 BCD）；计算分析题为 null */
+  answer?: string | null
   source: SourceRef
   status: '已核' | '待核' | '草稿'
   render: 'screenshot'
