@@ -297,7 +297,8 @@ function ShotImage({ page, subjectId }: { page: number; subjectId: string }) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [zoomed, setZoomed] = useState(false)
-  const name = `down-${String(page).padStart(4, '0')}.jpg`
+  // 主观题页块：整页去掉页眉水印
+  const name = `down-${String(page).padStart(4, '0')}.png`
 
   useEffect(() => {
     setLoaded(false)

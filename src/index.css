@@ -2491,3 +2491,86 @@ a { color: var(--blue); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============================================================
+   目录树搜索
+   ============================================================ */
+
+.tree-search {
+  width: 100%;
+  margin-top: 9px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.tree-search:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-soft);
+}
+
+.tree-clear {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.tree-clear:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* ============================================================
+   教材块图片 —— 加载占位与失败重试
+   ============================================================ */
+
+.block-img-skeleton {
+  aspect-ratio: 1060 / 320;
+  background: linear-gradient(
+    100deg,
+    var(--panel-2) 30%,
+    #eef1f6 50%,
+    var(--panel-2) 70%
+  );
+  background-size: 220% 100%;
+  animation: block-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes block-shimmer {
+  0% { background-position: 140% 0; }
+  100% { background-position: -40% 0; }
+}
+
+.block-card img.is-loading {
+  opacity: 0;
+  height: 0;
+}
+
+.block-card img.is-loaded {
+  opacity: 1;
+}
+
+.block-img-error {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  aspect-ratio: 1060 / 320;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block-img-skeleton {
+    animation: none;
+  }
+}

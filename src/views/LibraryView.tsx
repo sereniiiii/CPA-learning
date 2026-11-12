@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { ChapterMeta, SubjectLibrary, pointId } from '../types'
 
 /**
@@ -26,9 +26,45 @@ export function LibraryView({
   isDue: (pid: string) => boolean
   isWrong: (pid: string) => boolean
 }) {
+  const [query, setQuery] = useState('')
+
   if (!index) {
     return <div className="view-loading">内容库加载中…</div>
   }
+
+  // 搜索：章名 / 节名 / 考点名 命中即保留（连同其父级）
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return index.chapters
+    const out: ChapterMeta[] = []
+    for (const ch of index.chapters) {
+      const chHit = ch.title.toLowerCase().includes(q)
+      const sections = ch.sections
+        .map((sec) => {
+          const secHit = sec.title.toLowerCase().includes(q)
+          const points = sec.points.filter(
+            (p) =>
+              secHit ||
+              chHit ||
+              p.title.toLowerCase().includes(q) ||
+              `考点${p.num}`.includes(q),
+          )
+          return points.length ? { ...sec, points } : null
+        })
+        .filter(Boolean) as ChapterMeta['sections']
+      if (chHit || sections.length) out.push({ ...ch, sections })
+    }
+    return out
+  }, [index, query])
+
+  const hitCount = useMemo(
+    () =>
+      filtered.reduce(
+        (n, ch) => n + ch.sections.reduce((m, s) => m + s.points.length, 0),
+        0,
+      ),
+    [filtered],
+  )
 
   return (
     <>
@@ -36,13 +72,27 @@ export function LibraryView({
         <div className="tree-head">
           <p className="tree-title">教材目录</p>
           <p className="tree-sub">{index.chapters.length} 章 · 20 个部分</p>
+          <input
+            className="tree-search"
+            value={query}
+            placeholder="搜索考点、章节…"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query.trim() && (
+            <p className="tree-sub">
+              命中 {hitCount} 个考点
+              <button className="tree-clear" onClick={() => setQuery('')}>
+                清除
+              </button>
+            </p>
+          )}
         </div>
         <div className="tree-list">
-          {index.chapters.map((ch) => (
+          {filtered.map((ch) => (
             <ChapterTree
               key={ch.id}
               meta={ch}
-              expanded={openChapter === ch.id}
+              expanded={openChapter === ch.id || query.trim() !== ''}
               activePoint={activePoint}
               onToggle={() => onOpenChapter(ch.id)}
               onOpenPoint={onOpenPoint}
@@ -51,6 +101,11 @@ export function LibraryView({
               isWrong={isWrong}
             />
           ))}
+          {filtered.length === 0 && (
+            <p className="muted small" style={{ padding: '16px 14px' }}>
+              没有匹配的考点
+            </p>
+          )}
         </div>
       </div>
 

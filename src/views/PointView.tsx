@@ -512,6 +512,8 @@ function BlockGallery({
         {blocks.map((name, i) => {
           const meta = index[name]
           const kind = meta?.kind ?? 'point'
+          // 跨页标记：这个考点的第几块
+          const pageMark = blocks.length > 1 ? `第 ${i + 1}/${blocks.length} 块` : ''
           return (
             <figure key={name} className="block-card">
               <div className="block-card-head">
@@ -520,12 +522,12 @@ function BlockGallery({
                   {meta ? `${meta.volume} · PDF 第${meta.pdfPage}页` : ''}
                 </span>
                 <div style={{ flex: 1 }} />
-                <span className="muted small">#{i + 1}</span>
+                {pageMark && <span className="muted small">{pageMark}</span>}
               </div>
-              <img
-                src={learningApi.shotUrl(name, subjectId)}
+              <BlockImage
+                name={name}
+                subjectId={subjectId}
                 alt={meta?.label ?? '教材知识块'}
-                loading="lazy"
                 onClick={() => setZoomed(name)}
               />
               {meta?.label && <figcaption>{meta.label.slice(0, 60)}</figcaption>}
@@ -539,6 +541,60 @@ function BlockGallery({
           <img src={learningApi.shotUrl(zoomed, subjectId)} alt="" />
         </div>
       )}
+    </>
+  )
+}
+
+/**
+ * 教材块图片 —— 带加载占位与失败重试。
+ *
+ * 274MB 的图在弱网下会长时间空白，给个骨架 + 重试入口。
+ */
+function BlockImage({
+  name,
+  subjectId,
+  alt,
+  onClick,
+}: {
+  name: string
+  subjectId: string
+  alt: string
+  onClick: () => void
+}) {
+  const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [nonce, setNonce] = useState(0)
+
+  const src = `${learningApi.shotUrl(name, subjectId)}${
+    nonce ? `&r=${nonce}` : ''
+  }`
+
+  useEffect(() => {
+    setState('loading')
+  }, [name, subjectId, nonce])
+
+  if (state === 'error') {
+    return (
+      <div className="block-img-error">
+        <p className="muted small">图片没加载出来</p>
+        <button className="tool-btn" onClick={() => setNonce((n) => n + 1)}>
+          重试
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {state === 'loading' && <div className="block-img-skeleton" />}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className={state === 'ok' ? 'is-loaded' : 'is-loading'}
+        onClick={onClick}
+        onLoad={() => setState('ok')}
+        onError={() => setState('error')}
+      />
     </>
   )
 }
