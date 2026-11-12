@@ -12,6 +12,7 @@ import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
 import { OverlayEditor, QuestionEditor } from './EditPanel'
+import { PageBrowser } from './PageBrowser'
 
 interface Props {
   chapterId: string
@@ -180,36 +181,32 @@ export function PointView({
         onChange={saveOverlay}
       />
 
-      {/* 材料区 —— 默认折叠，强制自测 */}
-      <section className="material">
-        <div className="material-bar">
-          <button className="material-btn" onClick={() => setRevealed((v) => !v)}>
-            {revealed ? '收起材料' : '显示材料'}
-          </button>
-          {!revealed && (
+      {/* 原书页 —— 教材内容一律以截图呈现 */}
+      <PageBrowser
+        volume={point.source.volume}
+        startPage={point.source.pdfPage}
+        title="教材原书"
+        subtitle={`${point.source.volume} · 印刷页 ${point.source.printPage}`}
+      />
+
+      {/* 文字版 —— 仅作检索索引，OCR 文字层不可信 */}
+      {displayBody && (
+        <section className="material">
+          <div className="material-bar">
+            <button className="material-btn" onClick={() => setRevealed((v) => !v)}>
+              {revealed ? '收起文字版' : '显示文字版'}
+            </button>
             <span className="muted small">
-              先合上材料自测 —— 看懂不等于会做（文档 3.2）
+              OCR 文字层不可信 —— 涉及公式与数值的部分以上方原书截图为准
             </span>
-          )}
-          <button
-            className="material-btn is-link"
-            onClick={() => setRevealed(true)}
-            title="加载原书页截图，用于核对公式与数值"
-          >
-            看原书
-          </button>
-        </div>
-        {revealed && (
-          <div className="material-body">
-            {displayBody ? (
-              <pre className="raw-text">{displayBody}</pre>
-            ) : (
-              <p className="muted">该考点正文为图片，见下方原书截图。</p>
-            )}
-            <OriginalPageShot source={point.source} />
           </div>
-        )}
-      </section>
+          {revealed && (
+            <div className="material-body">
+              <pre className="raw-text">{displayBody}</pre>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 我的补充笔记 */}
       {(overlay?.notes || overlay?.answer || overlay?.blocker) && (
@@ -363,40 +360,9 @@ export function PointView({
   )
 }
 
-/** 原书页截图 —— 点击才加载，避免一次性拉几百张 */
-function OriginalPageShot({ source }: { source: { volume: string; pdfPage: number; printPage: number } }) {
-  const [loaded, setLoaded] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const name = shotNameFor(source)
-
-  if (!loaded) {
-    return (
-      <button className="shot-load-btn" onClick={() => setLoaded(true)}>
-        加载原书页截图（{source.volume} 印刷页 {source.printPage}）
-      </button>
-    )
-  }
-  if (failed) {
-    return <p className="muted small">该页截图暂不可用（可能是未收录页）。</p>
-  }
-  return (
-    <figure className="shot">
-      <img
-        src={learningApi.shotUrl(name)}
-        alt="原书页面截图"
-        loading="lazy"
-        onError={() => setFailed(true)}
-      />
-      <figcaption>
-        原书截图（{source.volume} 印刷页 {source.printPage} / PDF 第{source.pdfPage}页）
-      </figcaption>
-    </figure>
-  )
-}
-
 function ExampleCard({ example }: { example: Example }) {
-  const [open, setOpen] = useState(false)
   const [shotFailed, setShotFailed] = useState(false)
+  const [zoomed, setZoomed] = useState(false)
   const name = shotNameFor(example.source)
 
   return (
@@ -412,25 +378,25 @@ function ExampleCard({ example }: { example: Example }) {
       </div>
       <p className="example-text">{example.text || '（题干为图片，见下方原书截图）'}</p>
 
-      <div className="example-actions">
-        <button className="material-btn" onClick={() => setOpen((v) => !v)}>
-          {open ? '收起' : '看原书页'}
-        </button>
-      </div>
-
-      {open && !shotFailed && (
+      {!shotFailed ? (
         <figure className="shot">
           <img
             src={learningApi.shotUrl(name)}
             alt="原书页面截图"
             loading="lazy"
+            onClick={() => setZoomed(true)}
             onError={() => setShotFailed(true)}
           />
-          <figcaption>原书截图（含完整题干、选项与解析）</figcaption>
+          <figcaption>原书截图（含完整题干、选项与解析）· 点击放大</figcaption>
         </figure>
+      ) : (
+        <p className="muted small">该页截图暂不可用，往前后翻一页看看。</p>
       )}
-      {open && shotFailed && (
-        <p className="muted small">该页截图暂不可用（可能是未收录页）。</p>
+
+      {zoomed && (
+        <div className="lightbox" onClick={() => setZoomed(false)}>
+          <img src={learningApi.shotUrl(name)} alt="" />
+        </div>
       )}
     </article>
   )
