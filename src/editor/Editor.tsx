@@ -177,6 +177,7 @@ export function RichEditor({
           editor={editor}
           onPickImage={handleFilePick}
           uploadState={uploadState}
+          compact={compact}
         />
       )}
       <EditorContent editor={editor} />

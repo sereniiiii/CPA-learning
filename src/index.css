@@ -2151,3 +2151,295 @@ a { color: var(--blue); }
   border-color: var(--line);
   color: var(--ink-3);
 }
+
+/* ============================================================
+   编辑器工具栏
+   —— 之前完全没有样式，用的是浏览器默认按钮（灰底灰框挤成一堆）
+   ============================================================ */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  padding: 5px 7px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.tb-group + .tb-group {
+  margin-left: 6px;
+  padding-left: 7px;
+  border-left: 1px solid var(--line);
+}
+
+.tb-group--right {
+  margin-left: auto;
+  padding-left: 0;
+  border-left: none;
+}
+
+.tb-btn {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tb-btn:hover:not(:disabled) {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.tb-btn.is-active {
+  background: var(--blue);
+  color: #fff;
+}
+
+.tb-btn:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.tb-icon {
+  display: block;
+  pointer-events: none;
+}
+
+/* 高亮图标 —— 字上加黄色荧光条 */
+.tb-icon-highlight {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.tb-icon-highlight::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 1px;
+  height: 3px;
+  border-radius: 1px;
+  background: #ffe58a;
+}
+
+.tb-btn.is-active .tb-icon-highlight::after {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* 文字颜色图标 —— A 带下划线颜色条 */
+.tb-icon-color {
+  position: relative;
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+.tb-icon-color::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.tb-btn.is-active .tb-icon-color {
+  color: #fff !important;
+}
+
+/* 弹出层 */
+.tb-pop-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tb-pop {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 40;
+  min-width: 152px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.tb-pop button {
+  display: block;
+  width: 100%;
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tb-pop button:hover:not(:disabled) {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.tb-pop button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tb-pop hr {
+  margin: 4px 2px;
+  border: none;
+  border-top: 1px solid var(--line);
+}
+
+/* 色板 */
+.tb-pop--colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  width: max-content;
+}
+
+.tb-pop--colors button {
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 4px;
+}
+
+.tb-pop--colors button:hover {
+  transform: scale(1.14);
+  box-shadow: 0 0 0 2px var(--blue-soft);
+}
+
+.tb-color--clear {
+  display: grid !important;
+  place-items: center;
+  background: var(--panel-2) !important;
+  color: var(--ink-3) !important;
+}
+
+.tb-status {
+  font-size: 11px;
+  color: var(--ink-3);
+  padding: 0 4px;
+}
+
+.tb-status--error {
+  color: var(--red);
+}
+
+/* 编辑器正文 */
+.editor-body {
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.85;
+  color: var(--ink);
+  outline: none;
+}
+
+.editor-body:focus {
+  outline: none;
+}
+
+.editor-body p {
+  margin: 0 0 8px;
+}
+
+.editor-body ul,
+.editor-body ol {
+  margin: 0 0 8px;
+  padding-left: 22px;
+}
+
+.editor-body blockquote {
+  margin: 0 0 8px;
+  padding: 5px 12px;
+  border-left: 3px solid var(--line-2);
+  color: var(--ink-2);
+}
+
+.editor-body code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.editor-body pre {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  overflow-x: auto;
+}
+
+.editor-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+
+.editor-body th,
+.editor-body td {
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.editor-body th {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+.editor-body img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.editor-body h1,
+.editor-body h2,
+.editor-body h3 {
+  margin: 12px 0 6px;
+  line-height: 1.4;
+}
+
+.editor-body h1 { font-size: 17px; }
+.editor-body h2 { font-size: 15.5px; }
+.editor-body h3 { font-size: 14px; }
+
+.editor-body .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--ink-3);
+}
