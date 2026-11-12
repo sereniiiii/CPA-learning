@@ -61,6 +61,11 @@ export function SubjectiveView({
   }, [openTopic, subjectId])
 
   const saveNote = (topic: Topic, content: string, rating: 'none' | 'partial' | 'correct') => {
+    const prev = userData.subjectiveNotes[topic.id]
+    const now = new Date().toISOString()
+    // 每次改档位记一条轨迹 —— 主观题只能自评，
+    // 没有轨迹就看不出「练了 5 次有没有进步」。
+    const ratingChanged = !prev || prev.rating !== rating
     onUserDataChange({
       ...userData,
       subjectiveNotes: {
@@ -70,10 +75,15 @@ export function SubjectiveView({
           topicTitle: topic.title,
           content,
           rating,
-          updatedAt: new Date().toISOString(),
+          attempts: (prev?.attempts ?? 0) + (ratingChanged ? 1 : 0),
+          history: [
+            ...(prev?.history ?? []),
+            ...(ratingChanged ? [{ rating, at: now }] : []),
+          ].slice(-40),
+          updatedAt: now,
         },
       },
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     })
   }
 
@@ -252,6 +262,36 @@ function SubjectiveDetail({
           onSave={() => onSave(draft, rating)}
           onChange={(json) => setDraft(JSON.stringify(json))}
         />
+
+        {/* 练习轨迹 */}
+        {note && (note.attempts ?? 0) > 0 && (
+          <div className="sub-track">
+            <span className="muted small">
+              练过 {note.attempts ?? 0} 次
+            </span>
+            <div className="sub-track-bars">
+              {(note.history ?? []).map((h, i) => (
+                <span
+                  key={i}
+                  className={`sub-track-bar is-${h.rating}`}
+                  title={`${h.at.slice(0, 10)} · ${
+                    h.rating === 'correct' ? '完整正确' : h.rating === 'partial' ? '写出部分' : '没思路'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="muted small">
+              {(note.history ?? []).length > 0 &&
+                `最近：${
+                  note.history[note.history.length - 1].rating === 'correct'
+                    ? '完整正确'
+                    : note.history[note.history.length - 1].rating === 'partial'
+                      ? '写出部分'
+                      : '没思路'
+                }`}
+            </span>
+          </div>
+        )}
 
         <div className="field-label">自评（先写再对，直接看答案等于没练）</div>
         <div className="answer-row">

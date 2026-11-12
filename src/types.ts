@@ -272,8 +272,15 @@ export interface SubjectiveNote {
   topicTitle: string
   /** 手写训练正文（Tiptap JSON 字符串） */
   content: string
-  /** 自评档位 */
+  /** 当前自评档位 */
   rating: 'none' | 'partial' | 'correct'
+  /** 练习次数 */
+  attempts: number
+  /** 历史自评轨迹（按时间升序）—— 用来看到「有没有进步」 */
+  history: Array<{
+    rating: 'none' | 'partial' | 'correct'
+    at: string
+  }>
   updatedAt: string
 }
 

@@ -8,6 +8,8 @@ import { ChapterMeta, SubjectLibrary, pointId } from '../types'
 export function LibraryView({
   index,
   subjectId: _subjectId,
+  treeOpen = false,
+  onTreeClose,
   activePoint,
   onOpenPoint,
   onOpenChapter,
@@ -18,6 +20,9 @@ export function LibraryView({
 }: {
   index: SubjectLibrary | null
   subjectId: string
+  /** 窄屏下目录抽屉是否展开 */
+  treeOpen?: boolean
+  onTreeClose?: () => void
   activePoint: { chapterId: string; pointNum: number } | null
   onOpenPoint: (chapterId: string, pointNum: number) => void
   onOpenChapter: (chapterId: string) => void
@@ -68,8 +73,15 @@ export function LibraryView({
 
   return (
     <>
-      <div className="tree">
+      <div className={`tree${treeOpen ? ' is-open' : ''}`}>
         <div className="tree-head">
+          <button
+            className="mobile-only tree-close-btn"
+            onClick={() => onTreeClose?.()}
+            aria-label="关闭目录"
+          >
+            ×
+          </button>
           <p className="tree-title">教材目录</p>
           <p className="tree-sub">{index.chapters.length} 章 · 20 个部分</p>
           <input

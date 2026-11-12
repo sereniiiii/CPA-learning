@@ -4,9 +4,8 @@ import {
   LearningState,
   Point,
   UserData,
-  UserQuestion,
 } from '../types'
-import { ErrorCause, Example, pointId } from '../types'
+import { ErrorCause, Example, UserQuestion, pointId } from '../types'
 import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
@@ -154,6 +153,43 @@ export function PointView({
     } else {
       onStateChange(updateWrongBook(next, { pointId: exId } as never, false))
     }
+  }
+
+  /**
+   * 把教材例题复制进「我加的题」。
+   *
+   * 教材例题的题干/选项只在原书截图里（OCR 不可信），所以这里只带
+   * 题号、类型、正确答案，题干留占位由用户补 —— 截图可以对照着填。
+   */
+  const addToMyQuestions = (exNo: number | null | undefined, ex: Example | undefined) => {
+    if (exNo == null) return
+    const type: UserQuestion['type'] =
+      ex?.type === '多选题'
+        ? '多选题'
+        : ex?.type === '计算分析题'
+          ? '计算分析题'
+          : ex?.type === '综合题'
+            ? '综合题'
+            : '单选题'
+    const q: UserQuestion = {
+      id: `uq-${Date.now().toString(36)}`,
+      pointId: pid,
+      chapterId: chapter.id,
+      chapterNum: chapter.num,
+      type,
+      stem: `【教材例题${exNo}】题干见原书截图，请对照填写`,
+      options: ['', '', '', ''],
+      answer: ex?.answer ?? '',
+      analysis: '',
+      origin: 'ocr',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    onUserDataChange({
+      ...userData,
+      questions: [...userData.questions, q],
+      updatedAt: new Date().toISOString(),
+    })
   }
 
   const handleAnswer = (result: AnswerResult) => {
@@ -426,6 +462,14 @@ export function PointView({
                         onClick={() => judgeExample(exId, 'wrong', no, ex)}
                       >
                         做错了
+                      </button>
+                      <button
+                        className="tool-btn"
+                        style={{ color: 'var(--ink-3)' }}
+                        onClick={() => addToMyQuestions(no, ex)}
+                        title="把这道例题复制进「我加的题」，可编辑题干与选项"
+                      >
+                        ＋ 加入我的题
                       </button>
                     </div>
                   )}

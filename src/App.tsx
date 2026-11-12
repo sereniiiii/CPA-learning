@@ -52,6 +52,8 @@ export default function App() {
     null,
   )
   const [openChapter, setOpenChapter] = useState<string | null>(null)
+  /** 窄屏下目录树抽屉是否展开 */
+  const [treeOpen, setTreeOpen] = useState(false)
 
   const [myNotes, setMyNotes] = useState<PageMeta[]>([])
   const [activeNote, setActiveNote] = useState<PageMeta | null>(null)
@@ -315,6 +317,18 @@ export default function App() {
       </aside>
 
       <main className="main">
+        {/* 窄屏：目录树改成抽屉，这里放开关 */}
+        <button
+          className="mobile-only tree-toggle-btn"
+          onClick={() => setTreeOpen(true)}
+          aria-label="打开目录"
+        >
+          ☰ 目录
+        </button>
+        {treeOpen && (
+          <div className="tree-scrim" onClick={() => setTreeOpen(false)} />
+        )}
+
         {openPoint ? (
           <div className="canvas">
             <PointView
@@ -332,6 +346,8 @@ export default function App() {
         ) : tab === 'library' ? (
           <div className="split">
             <LibraryView
+              treeOpen={treeOpen}
+              onTreeClose={() => setTreeOpen(false)}
               index={library}
               subjectId={subjectId}
               activePoint={openPoint}

@@ -2921,3 +2921,277 @@ a { color: var(--blue); }
   background: var(--red-soft);
   color: var(--red);
 }
+
+/* ============================================================
+   掌握度衰减曲线
+   ============================================================ */
+
+.archive-chip {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 9px 11px;
+}
+
+.decay-curve {
+  display: block;
+  width: 100%;
+  height: 34px;
+}
+
+/* ============================================================
+   主观题练习轨迹
+   ============================================================ */
+
+.sub-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 7px 11px;
+  margin-bottom: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.sub-track-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 1;
+  min-width: 90px;
+}
+
+.sub-track-bar {
+  width: 7px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+
+.sub-track-bar.is-correct {
+  background: var(--green);
+  height: 22px;
+}
+
+.sub-track-bar.is-partial {
+  background: var(--amber);
+  height: 18px;
+}
+
+.sub-track-bar.is-none {
+  background: var(--red);
+  height: 12px;
+}
+
+/* ============================================================
+   iPhone / 窄屏适配
+   —— 侧栏变底部 tab 栏，目录树变抽屉
+   ============================================================ */
+
+@media (max-width: 780px) {
+  :root {
+    --nav-w: 100%;
+    --tree-w: 100%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  /* 侧栏 → 底部 tab 栏 */
+  .sidebar {
+    order: 2;
+    flex-direction: row;
+    align-items: stretch;
+    height: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    background: var(--nav-bg);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-head,
+  .sidebar-foot {
+    display: none;
+  }
+
+  .subject-switcher {
+    display: none;
+  }
+
+  .tabs {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 58px;
+    padding: 7px 8px;
+    border-radius: 0;
+    font-size: 10.5px;
+    text-align: center;
+  }
+
+  .tab .tab-text {
+    white-space: nowrap;
+  }
+
+  .tab-badge {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+  }
+
+  .main {
+    order: 1;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* 目录树 → 抽屉（默认收起，靠顶部按钮打开） */
+  .split {
+    display: block;
+    min-height: 0;
+  }
+
+  .tree {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(86vw, 340px);
+    max-height: none;
+    height: 100dvh;
+    border-right: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-100%);
+    transition: transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .tree.is-open {
+    transform: translateX(0);
+  }
+
+  .tree-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(18, 22, 28, 0.42);
+  }
+
+  .canvas {
+    padding: 16px 14px 40px;
+  }
+
+  /* 触控目标放大 */
+  .tb-btn {
+    width: 33px;
+    height: 33px;
+  }
+
+  .point-chip {
+    padding: 10px 12px;
+  }
+
+  .material-btn,
+  .top-btn,
+  .answer-btn {
+    padding: 9px 13px;
+  }
+
+  .field-label {
+    margin-top: 12px;
+  }
+
+  /* 块画廊单列 */
+  .block-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ex-swipe-track {
+    border-radius: var(--radius);
+  }
+
+  .ex-slide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ex-dots {
+    gap: 5px;
+  }
+
+  .ex-dot {
+    width: 9px;
+    height: 9px;
+  }
+
+  .editor-body.is-compact {
+    min-height: 170px;
+  }
+
+  .tree-search {
+    font-size: 16px; /* 防止 iOS 聚焦时自动放大 */
+  }
+}
+
+/* 移动端顶部：目录抽屉按钮 */
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  .mobile-only {
+    display: inline-flex;
+  }
+}
+
+/* 窄屏目录抽屉开关 */
+.tree-toggle-btn {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: 10px 14px 0;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink-2);
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+}
+
+.tree-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-3);
+  font-size: 18px;
+  line-height: 1;
+}

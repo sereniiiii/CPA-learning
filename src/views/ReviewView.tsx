@@ -131,6 +131,58 @@ export function WrongBookView({
 }
 
 /** 归档区：已掌握但会衰减的考点，按衰减程度排序 */
+/**
+ * 掌握度衰减曲线。
+ *
+ * 每天按 3% 衰减（复利），画出来就是一条下行曲线 ——
+ * 比单看「原 85% → 现在 62%」直观得多：能看出还剩多少缓冲、多久会跌破线。
+ */
+function DecayCurve({
+  mastery,
+  days,
+  decayed,
+}: {
+  mastery: number
+  days: number
+  decayed: number
+}) {
+  const W = 132
+  const H = 34
+  const horizon = Math.max(days, 14)
+  const pts: string[] = []
+  for (let d = 0; d <= horizon; d += Math.max(1, Math.round(horizon / 28))) {
+    const v = mastery * Math.pow(0.97, d)
+    const x = (d / horizon) * W
+    const y = H - (v / 100) * H
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+  }
+  const x = (days / horizon) * W
+  const y = H - (decayed / 100) * H
+
+  return (
+    <svg className="decay-curve" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <line
+        x1="0"
+        y1={H - 0.6 * H}
+        x2={W}
+        y2={H - 0.6 * H}
+        stroke="var(--line-2)"
+        strokeDasharray="3 3"
+        strokeWidth="1"
+      />
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke="var(--amber)"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <circle cx={x} cy={y} r="2.8" fill="var(--red)" />
+    </svg>
+  )
+}
+
 export function ArchiveView({
   state,
   onOpenPoint,
@@ -168,12 +220,13 @@ export function ArchiveView({
         {items.map((it) => (
           <button
             key={it.pid}
-            className="point-chip"
+            className="point-chip archive-chip"
             onClick={() => {
               const parsed = parsePointId(it.pid)
               if (parsed) onOpenPoint(parsed.chapterId, parsed.pointNum)
             }}
           >
+            <DecayCurve mastery={it.mastery} days={it.days} decayed={it.decayed} />
             <span className="point-name">{it.pid}</span>
             <span className="badge badge-diff is-中">
               {it.decayed}%（原 {it.mastery}%）
