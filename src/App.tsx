@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { RichEditor } from './editor/Editor'
 import {
+  ExportBundle,
   PageMeta,
   checkSession,
   createPage,
   deletePage,
+  exportAll,
   getPage,
+  importAll,
   listPages,
   login,
   logout,
@@ -28,6 +31,8 @@ export default function App() {
   const [dirty, setDirty] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState<'' | 'export' | 'import'>('')
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   const contentRef = useRef<string>('')
   const titleRef = useRef<string>('')
@@ -142,8 +147,7 @@ export default function App() {
     }
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleLogin = async (e: React.FormEvent) => {    e.preventDefault()
     setLoggingIn(true)
     setAuthError('')
     try {
@@ -162,6 +166,71 @@ export default function App() {
     setAuthed(false)
     setPages([])
     setActiveId(null)
+  }
+
+  /* ---------- 导入导出 ---------- */
+
+  const handleExport = async () => {
+    setBusy('export')
+    try {
+      if (dirty) await flushSave()
+      const bundle = await exportAll()
+      const json = JSON.stringify(bundle, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cpa-learning-${stamp}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      console.error(err)
+      setSaveState('error')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    let bundle: ExportBundle
+    try {
+      bundle = JSON.parse(await file.text()) as ExportBundle
+    } catch {
+      setSaveState('error')
+      return
+    }
+    if (!Array.isArray(bundle?.pages) || bundle.pages.length === 0) {
+      setSaveState('error')
+      return
+    }
+
+    const count = bundle.pages.length
+    const mode = window.confirm(
+      `即将导入 ${count} 篇笔记。\n\n` +
+        `确定 = 合并（覆盖同名笔记，保留其余）\n` +
+        `取消 = 完全还原（先清空现有内容）`,
+    )
+      ? 'merge'
+      : 'replace'
+
+    setBusy('import')
+    try {
+      await importAll(bundle, mode)
+      const list = await loadPageList()
+      if (list.length > 0) setActiveId(list[0].id)
+    } catch (err) {
+      console.error(err)
+      setSaveState('error')
+    } finally {
+      setBusy('')
+    }
   }
 
   /* ---------- 渲染 ---------- */
@@ -244,9 +313,36 @@ export default function App() {
         </nav>
 
         <div className="sidebar-foot">
-          {statusText && (
-            <span className={`save-status is-${saveState}`}>{statusText}</span>
-          )}
+          <div className="foot-row">
+            {statusText && (
+              <span className={`save-status is-${saveState}`}>{statusText}</span>
+            )}
+            <div className="data-tools">
+              <button
+                className="tool-btn"
+                onClick={handleExport}
+                disabled={busy !== ""}
+                title="导出全部笔记（含图片）为 JSON"
+              >
+                {busy === 'export' ? '导出中' : '导出'}
+              </button>
+              <button
+                className="tool-btn"
+                onClick={() => importInputRef.current?.click()}
+                disabled={busy !== ""}
+                title="从 JSON 备份恢复"
+              >
+                导入
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={handleImportFile}
+              />
+            </div>
+          </div>
         </div>
       </aside>
 
