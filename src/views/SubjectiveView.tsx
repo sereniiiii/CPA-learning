@@ -23,7 +23,7 @@ interface TopicDetail {
  * 主观题集训区。
  *
  * 文档 3.5：主观题占 50 分，是与客观题等重的分值，必须是一条独立通道。
- * 教材为此专设「第三部分 主观题集训」17 个专题。
+ * 教材为此专设「主观题集训」部分（各科专题数与组织方式不同）。
  *
  * 学习方式与客观题不同（文档 3.5）：
  * 主观题必须手写训练过程 —— 网页提供「题目 + 参考答案 + 自评」三件套，
@@ -95,7 +95,9 @@ export function SubjectiveView({
       <div className="tree">
         <div className="tree-head">
           <p className="tree-title">主观题集训</p>
-          <p className="tree-sub">17 个专题 · 占卷面 50 分</p>
+          <p className="tree-sub">
+            {topics.length} 个专题 · {topics.reduce((n, t) => n + (t.pageCount ?? 0), 0)} 页
+          </p>
         </div>
         <div className="tree-list">
           {topics.map((t) => {
@@ -123,7 +125,7 @@ export function SubjectiveView({
           <div>
             <h1 className="library-title">主观题集训</h1>
             <p className="library-sub">
-              教材下册「第三部分 主观题集训」17 个专题 · 跨章节专项训练
+              教材「主观题集训」{topics.length} 个专题 · 跨章节专项训练
               <br />
               主观题必须手写训练过程 —— 先写，再对答案，直接看答案等于没练
             </p>
