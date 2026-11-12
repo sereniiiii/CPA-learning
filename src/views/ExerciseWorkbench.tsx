@@ -1,160 +1,228 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { learningApi } from '../api'
 import { UserData } from '../types'
 import { RichEditor } from '../editor/Editor'
 
-const VOL_MAP: Record<string, string> = { 上册: 'up', 中册: 'mid', 下册: 'down' }
+export interface ExerciseItem {
+  no: number
+  stem: string
+  block: string
+  page: number
+  answer: string | null
+  answerBlock: string | null
+}
+
+export interface ExerciseGroup {
+  chapterNum: number
+  chapterTitle: string
+  items: ExerciseItem[]
+}
 
 /**
- * 习题工作台。
+ * 习题滑动工作台。
  *
- * 一页原书 + 一个答题框并排：
- *   左边看题（点击可放大），右边写解答。
- * 答题框支持文字、表格、图片、高亮、颜色 —— 内容以 Tiptap JSON 存储。
+ * 一道题一屏，左右滑动切换：
+ *   - 触摸滑动（移动端）
+ *   - ← → 方向键
+ *   - 底部圆点指示器点选跳转
+ * 左原书题图，右答题区；答案默认收起，做完再展开对照。
  */
 export function ExerciseWorkbench({
   subjectId,
   chapterId,
-  pages,
+  groups,
   userData,
   onUserDataChange,
 }: {
   subjectId: string
   chapterId: string
-  pages: Array<{
-    source: { volume: string; pdfPage: number; printPage: number }
-    block?: string
-  }>
+  groups: ExerciseGroup[]
   userData: UserData
   onUserDataChange: (d: UserData) => void
 }) {
-  const [openPage, setOpenPage] = useState<number | null>(pages[0]?.source.pdfPage ?? null)
+  const all = groups.flatMap((g) => g.items)
+  const [index, setIndex] = useState(0)
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [touchX, setTouchX] = useState<number | null>(null)
 
-  if (pages.length === 0) return null
+  const cur = all[index]
+
+  const go = useCallback(
+    (n: number) => {
+      setIndex(Math.max(0, Math.min(all.length - 1, n)))
+      setShowAnswer(false)
+    },
+    [all.length],
+  )
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        return
+      }
+      if (e.key === 'ArrowLeft') go(index - 1)
+      if (e.key === 'ArrowRight') go(index + 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [index, go])
+
+  if (!cur) {
+    return <p className="muted small">这一章还没有习题</p>
+  }
+
+  const answerKey = `${chapterId}-ex${cur.page}-${cur.no}`
+
+  const saveAnswer = (content: string) => {
+    onUserDataChange({
+      ...userData,
+      exerciseAnswers: {
+        ...userData.exerciseAnswers,
+        [answerKey]: {
+          chapterId,
+          page: cur.page,
+          volume: '',
+          printPage: cur.page,
+          content,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      updatedAt: new Date().toISOString(),
+    })
+  }
 
   return (
-    <div className="workbench">
-      {pages.map((ex) => {
-        const key = `${chapterId}-p${ex.source.pdfPage}`
-        const answer = userData.exerciseAnswers[key]
-        const open = openPage === ex.source.pdfPage
-        return (
-          <div key={key} className="workbench-row">
-            <button
-              className={`workbench-tab${open ? ' is-open' : ''}`}
-              onClick={() => setOpenPage(open ? null : ex.source.pdfPage)}
-            >
-              <span>
-                {ex.source.volume} 印刷页 {ex.source.printPage}
-              </span>
-              <span className="workbench-tab-meta">
-                {answer ? '已作答' : '未作答'}
-                {answer ? ' ✓' : ''}
-              </span>
-            </button>
+    <div className="ex-swipe">
+      <div className="ex-swipe-top">
+        <div className="ex-swipe-tabs">
+          {groups.map((g, gi) => {
+            const start = groups
+              .slice(0, gi)
+              .reduce((n, x) => n + x.items.length, 0)
+            const active = index >= start && index < start + g.items.length
+            return (
+              <button
+                key={gi}
+                className={`ex-tab${active ? ' is-active' : ''}`}
+                onClick={() => go(start)}
+              >
+                {g.items.length}题
+              </button>
+            )
+          })}
+        </div>
+        <span className="muted small">
+          第 {index + 1} / {all.length} 题
+        </span>
+      </div>
 
-            {open && (
-              <div className="workbench-body">
-                <div className="workbench-left">
-                  <ShotPanel
-                    volume={ex.source.volume}
-                    page={ex.source.pdfPage}
-                    printPage={ex.source.printPage}
-                    block={ex.block}
-                    subjectId={subjectId}
-                  />
+      <div
+        className="ex-swipe-track"
+        onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
+        onTouchEnd={(e) => {
+          if (touchX === null) return
+          const dx = e.changedTouches[0].clientX - touchX
+          if (Math.abs(dx) > 48) go(index + (dx < 0 ? 1 : -1))
+          setTouchX(null)
+        }}
+      >
+        <div className="ex-swipe-inner" style={{ transform: `translateX(${-index * 100}%)` }}>
+          {all.map((it, i) => {
+            const k = `${chapterId}-ex${it.page}-${it.no}`
+            return (
+              <div className="ex-slide" key={`${it.page}-${it.no}-${i}`}>
+                <div className="ex-slide-left">
+                  <figure className="shot">
+                    <img
+                      src={learningApi.shotUrl(it.block, subjectId)}
+                      alt={`第 ${it.no} 题`}
+                      loading="lazy"
+                    />
+                    <figcaption>{it.stem.slice(0, 60)}</figcaption>
+                  </figure>
                 </div>
-                <div className="workbench-right">
-                  <div className="workbench-right-head">
-                    <span className="section-title">我的解答</span>
-                    <span className="muted small">
-                      可写文字、插表格、贴图片，用高亮和颜色标注关键步骤
-                    </span>
+                <div className="ex-slide-right">
+                  <div className="ex-slide-head">
+                    <span className="ex-qno">第 {it.no} 题</span>
+                    {it.answer && !showAnswer && (
+                      <button
+                        className="ex-reveal"
+                        onClick={() => setShowAnswer(true)}
+                      >
+                        看答案
+                      </button>
+                    )}
                   </div>
+
                   <RichEditor
                     compact
-                    content={answer?.content ?? ''}
-                    placeholder={
-                      '在这里写解答…\n提示：一页里通常有几道题，可以自己用「1. 」「2.」分开写'
-                    }
-                    onSave={() => {
-                      /* 内容变更时已即时保存，这里无需额外动作 */
-                    }}
-                    onChange={(json: JSONContent) => {
-                      const content = JSON.stringify(json)
-                      onUserDataChange({
-                        ...userData,
-                        exerciseAnswers: {
-                          ...userData.exerciseAnswers,
-                          [key]: {
-                            chapterId,
-                            page: ex.source.pdfPage,
-                            volume: ex.source.volume,
-                            printPage: ex.source.printPage,
-                            content,
-                            updatedAt: new Date().toISOString(),
-                          },
-                        },
-                        updatedAt: new Date().toISOString(),
-                      })
-                    }}
+                    content={userData.exerciseAnswers[k]?.content ?? ''}
+                    placeholder="在这里写你的解答…"
+                    onSave={() => {}}
+                    onChange={(json: JSONContent) => saveAnswer(JSON.stringify(json))}
                   />
+
+                  {showAnswer && (
+                    <div className="ex-answer">
+                      <div className="ex-answer-head">
+                        <span className="ex-answer-label">教材答案</span>
+                        {it.answer && <b>{it.answer}</b>}
+                        <button
+                          className="ex-answer-close"
+                          onClick={() => setShowAnswer(false)}
+                        >
+                          收起
+                        </button>
+                      </div>
+                      {it.answerBlock && (
+                        <img
+                          src={learningApi.shotUrl(it.answerBlock, subjectId)}
+                          alt="教材答案"
+                          loading="lazy"
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/** 原书页 —— 点击放大 */
-function ShotPanel({
-  volume,
-  page,
-  printPage,
-  block,
-  subjectId,
-}: {
-  volume: string
-  page: number
-  printPage: number
-  block?: string
-  subjectId: string
-}) {
-  const [zoomed, setZoomed] = useState(false)
-  const [failed, setFailed] = useState(false)
-  // 习题页有专门的裁剪块（去掉页眉水印），优先用它
-  const vol = VOL_MAP[volume] ?? 'up'
-  const name = block ?? `${vol}-${String(page).padStart(4, '0')}.png`
-
-  return (
-    <>
-      {failed ? (
-        <p className="muted small" style={{ padding: 20, textAlign: 'center' }}>
-          这一页的截图暂不可用。
-        </p>
-      ) : (
-        <figure className="shot">
-          <img
-            src={learningApi.shotUrl(name, subjectId)}
-            alt={`${volume} 印刷页 ${printPage}`}
-            loading="lazy"
-            onClick={() => setZoomed(true)}
-            onError={() => setFailed(true)}
-          />
-          <figcaption>
-            {volume} · 印刷页 {printPage} · 点击放大
-          </figcaption>
-        </figure>
-      )}
-      {zoomed && (
-        <div className="lightbox" onClick={() => setZoomed(false)}>
-          <img src={learningApi.shotUrl(name, subjectId)} alt="" />
+            )
+          })}
         </div>
-      )}
-    </>
+      </div>
+
+      <div className="ex-swipe-bottom">
+        <button
+          className="ex-arrow"
+          onClick={() => go(index - 1)}
+          disabled={index === 0}
+          title="上一题 ←"
+        >
+          ‹
+        </button>
+        <div className="ex-dots">
+          {all.map((it, i) => (
+            <button
+              key={i}
+              className={`ex-dot${i === index ? ' is-active' : ''}`}
+              onClick={() => go(i)}
+              title={`第 ${it.no} 题`}
+            />
+          ))}
+        </div>
+        <button
+          className="ex-arrow"
+          onClick={() => go(index + 1)}
+          disabled={index === all.length - 1}
+          title="下一题 →"
+        >
+          ›
+        </button>
+      </div>
+      <p className="muted small ex-hint">
+        左右滑动或按 ← → 切题 · 写完点「看答案」对照教材
+      </p>
+    </div>
   )
 }

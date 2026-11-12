@@ -73,6 +73,28 @@ export interface ChapterMeta {
   sections: SectionMeta[]
 }
 
+/** 习题题组中的一道题 */
+export interface ExerciseItem {
+  no: number
+  /** 题干文字（OCR，仅作定位用，题干看原书截图） */
+  stem: string
+  /** 题目块图片文件名 */
+  block: string
+  /** 所在 PDF 页 */
+  page: number
+  /** 教材答案（选择题字母；计算题可能为 null） */
+  answer: string | null
+  /** 教材答案块图片文件名 */
+  answerBlock: string | null
+}
+
+/** 习题题组（教材里一组题，题号 1..N） */
+export interface ExerciseGroup {
+  chapterNum: number
+  chapterTitle: string
+  items: ExerciseItem[]
+}
+
 export interface TextbookIndex {
   meta: {
     title: string
@@ -134,6 +156,8 @@ export interface Chapter {
   }>
   sections: Section[]
   exercises: Array<{ source: SourceRef; status: string }>
+  /** 按题切开的习题组（一题一屏，可左右滑动） */
+  exerciseGroups?: ExerciseGroup[]
   pdfPages: number[]
   needScreenshot: boolean
   status: string

@@ -398,17 +398,24 @@ export function PointView({
         ))}
       </section>
 
-      {/* 同步习题 —— 章末综合，独立成章，不拆进各考点（文档 3.4） */}
-      {(chapter.exercises ?? []).length > 0 && (
+      {/* 同步习题 —— 章末综合，一题一屏左右滑动（文档 3.4） */}
+      {(chapter.exerciseGroups ?? []).length > 0 && (
         <section className="examples">
-          <h2 className="section-title">同步习题（{(chapter.exercises ?? []).length} 页）</h2>
+          <h2 className="section-title">
+            同步习题（
+            {(chapter.exerciseGroups ?? []).reduce(
+              (n, g) => n + g.items.length,
+              0,
+            )}{' '}
+            题）
+          </h2>
           <p className="muted small">
-            章末跨考点综合检验 —— 左边看题，右边写解答
+            章末跨考点综合检验 —— 一题一屏，左右滑动切换，左看题右写解答
           </p>
           <ExerciseWorkbench
             subjectId={subjectId}
             chapterId={chapter.id}
-            pages={chapter.exercises ?? []}
+            groups={chapter.exerciseGroups ?? []}
             userData={userData}
             onUserDataChange={onUserDataChange}
           />

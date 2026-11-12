@@ -2574,3 +2574,247 @@ a { color: var(--blue); }
     animation: none;
   }
 }
+
+/* ============================================================
+   习题滑动工作台 —— 一题一屏，左右滑动切换
+   ============================================================ */
+
+.ex-swipe {
+  margin-top: 12px;
+}
+
+.ex-swipe-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.ex-swipe-tabs {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.ex-tab {
+  padding: 3px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-3);
+  font-size: 11.5px;
+  transition: all 0.13s;
+}
+
+.ex-tab:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.ex-tab.is-active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.ex-swipe-track {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  touch-action: pan-y;
+}
+
+.ex-swipe-inner {
+  display: flex;
+  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+.ex-slide {
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1px;
+  background: var(--line);
+}
+
+.ex-slide-left {
+  background: #eef1f5;
+  padding: 12px;
+  min-width: 0;
+}
+
+.ex-slide-left .shot {
+  margin: 0;
+}
+
+.ex-slide-left img {
+  display: block;
+  width: 100%;
+  background: #fff;
+  border-radius: var(--radius);
+  cursor: zoom-in;
+}
+
+.ex-slide-left figcaption {
+  margin-top: 6px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.ex-slide-right {
+  background: var(--panel);
+  padding: 12px 14px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ex-slide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.ex-qno {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ex-reveal {
+  padding: 3px 11px;
+  border: 1px solid var(--green);
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: all 0.13s;
+}
+
+.ex-reveal:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.ex-answer {
+  margin-top: 11px;
+  padding: 10px 12px;
+  background: var(--green-soft);
+  border: 1px solid var(--green);
+  border-radius: var(--radius);
+}
+
+.ex-answer-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+  font-size: 12.5px;
+  color: var(--green);
+}
+
+.ex-answer-head b {
+  font-size: 14px;
+  letter-spacing: 1.5px;
+}
+
+.ex-answer-close {
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.ex-answer-close:hover {
+  opacity: 1;
+}
+
+.ex-answer img {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.ex-swipe-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.ex-arrow {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-2);
+  font-size: 17px;
+  line-height: 1;
+  transition: all 0.13s;
+}
+
+.ex-arrow:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.ex-arrow:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.ex-dots {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ex-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--line-2);
+  transition: all 0.13s;
+}
+
+.ex-dot:hover {
+  background: var(--blue);
+  transform: scale(1.25);
+}
+
+.ex-dot.is-active {
+  background: var(--blue);
+  transform: scale(1.35);
+}
+
+.ex-hint {
+  margin: 7px 0 0;
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .ex-slide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
