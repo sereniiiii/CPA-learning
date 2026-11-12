@@ -14,7 +14,7 @@ export interface PointMeta {
   difficulty: string | null
   hot: number | null
   exampleCount: number
-  render: 'text' | 'screenshot'
+  render: 'screenshot'
 }
 
 export interface SectionMeta {
@@ -62,10 +62,9 @@ export interface SourceRef {
 export interface Example {
   no: number
   type: string
-  text: string
   source: SourceRef
   status: '已核' | '待核' | '草稿'
-  render: 'text' | 'screenshot'
+  render: 'screenshot'
 }
 
 export interface Point {
@@ -73,11 +72,10 @@ export interface Point {
   title: string
   difficulty: string | null
   hot: number | null
-  body: string
   examples: Example[]
   source: SourceRef
   status: '已核' | '待核' | '草稿'
-  render: 'text' | 'screenshot'
+  render: 'screenshot'
 }
 
 export interface Section {
@@ -99,7 +97,7 @@ export interface Chapter {
     section: string
   }>
   sections: Section[]
-  exercises: Array<{ source: SourceRef; text: string; status: string }>
+  exercises: Array<{ source: SourceRef; status: string }>
   pdfPages: number[]
   needScreenshot: boolean
   status: string
@@ -159,9 +157,8 @@ export interface WrongItem {
  *   3. 重新抽取教材不会丢用户数据（overlay 按 ID 匹配）
  */
 export interface UserOverlay {
-  /** 覆盖的教材原文（仅在用户显式改写时存在） */
+  /** 改写后的考点名称（仅在用户显式改写时存在） */
   title?: string
-  body?: string
   /** 用户自己的解析、思路、易错点 */
   notes?: string
   /** 用户记的答案 */

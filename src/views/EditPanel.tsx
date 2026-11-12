@@ -4,9 +4,8 @@ import { UserOverlay, UserQuestion } from '../types'
 interface OverlayProps {
   pid: string
   overlay: UserOverlay | undefined
-  /** 教材原文，用于「改写原文」时对照 */
+  /** 教材原名，用于「改写名称」时对照 */
   originalTitle: string
-  originalBody: string
   onChange: (o: UserOverlay) => void
 }
 
@@ -25,7 +24,6 @@ export function OverlayEditor({
   pid,
   overlay,
   originalTitle,
-  originalBody,
   onChange,
 }: OverlayProps) {
   const [open, setOpen] = useState(false)
@@ -49,7 +47,6 @@ export function OverlayEditor({
   const edited = Boolean(
     overlay &&
       (overlay.title !== undefined ||
-        overlay.body !== undefined ||
         overlay.notes ||
         overlay.answer ||
         overlay.blocker),
@@ -87,7 +84,7 @@ export function OverlayEditor({
               className={`overlay-tab${tab === 'rewrite' ? ' is-on' : ''}`}
               onClick={() => setTab('rewrite')}
             >
-              改写原文
+              改写名称
             </button>
           </div>
 
@@ -125,7 +122,8 @@ export function OverlayEditor({
           {tab === 'rewrite' && (
             <div className="overlay-pane">
               <div className="rewrite-note">
-                改写只覆盖显示，教材原文仍然保留在内容库里，随时可以还原。
+                教材正文是原书截图，没有可改写的文字 —— 这里只能改考点名称。
+                改写只影响显示，教材原名仍保留在内容库里，随时可还原。
               </div>
               <label className="field-label">考点名称（改写后）</label>
               <input
@@ -134,19 +132,12 @@ export function OverlayEditor({
                 placeholder={originalTitle}
                 onChange={(e) => commit({ title: e.target.value || undefined })}
               />
-              <label className="field-label">正文（改写后）</label>
-              <textarea
-                className="overlay-textarea"
-                value={draft.body ?? originalBody}
-                placeholder={originalBody.slice(0, 120)}
-                onChange={(e) => commit({ body: e.target.value || undefined })}
-              />
-              {(draft.title || draft.body) && (
+              {draft.title && (
                 <button
                   className="tool-btn"
-                  onClick={() => commit({ title: undefined, body: undefined })}
+                  onClick={() => commit({ title: undefined })}
                 >
-                  还原为教材原文
+                  还原为教材原名
                 </button>
               )}
             </div>

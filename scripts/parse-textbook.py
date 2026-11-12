@@ -384,17 +384,17 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
     def ensure_point(num: int, title: str, difficulty, hot, seq: int, print_page: int,
                      broken_mark: bool = False):
         nonlocal cur_point
+        # 正文一律用原书截图呈现，OCR 文字层不可信且冗余 —— 不入库。
+        # 保留的只有：考点名、难度、热点次数、来源页码（决定显示哪张截图）。
         point = {
             "num": num,
             "title": title,
             "difficulty": difficulty,
             "hot": hot,
-            "body": "",
             "examples": [],
             "source": {"volume": vol, "pdfPage": seq, "printPage": print_page},
             "status": "待核",
-            # 难度标记 OCR 损坏 → 该考点内容不可全信，按设计文档 4.1 走截图
-            "render": "screenshot" if broken_mark else "text",
+            "render": "screenshot",
         }
         if cur_section is None:
             ensure_section("（未分节）", 0)
@@ -464,21 +464,19 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
                     seg_lines.append(lines[j])
                     j += 1
                 seg = "\n".join(seg_lines)
+                # 例题只留元数据；题干与解析一律看原书截图
                 item = {
                     "no": int(em.group(1)),
                     "type": em.group(2).strip(),
-                    "text": " ".join(seg.split())[:1500],
                     "source": {"volume": vol, "pdfPage": seq, "printPage": print_page},
                     "status": "待核",
-                    "render": "screenshot" if (is_unclear(seg) or has_table(seg)) else "text",
+                    "render": "screenshot",
                 }
                 if cur_point is not None:
                     cur_point["examples"].append(item)
                 i = j
                 continue
 
-            if cur_point is not None:
-                cur_point["body"] = (cur_point["body"] + "\n" + s) if cur_point["body"] else s
             i += 1
 
     # 用考点框架信息补全难度与热点
@@ -527,7 +525,6 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
         exercises.append({
             "source": {"volume": vol, "pdfPage": p["seq"],
                         "printPage": extract_print_page(raw, p["seq"])},
-            "text": t,
             "status": "待核",
         })
 

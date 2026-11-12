@@ -42,14 +42,12 @@ export function PointView({
   onOpenPoint,
 }: Props) {
   const [chapter, setChapter] = useState<Chapter | null>(null)
-  const [revealed, setRevealed] = useState(false)
   const [cause, setCause] = useState<ErrorCause | null>(null)
   const [selfRated, setSelfRated] = useState<'none' | 'partial' | 'correct'>('none')
   const [addingQuestion, setAddingQuestion] = useState(false)
   const [err, setErr] = useState('')
 
   useEffect(() => {
-    setRevealed(false)
     setCause(null)
     setSelfRated('none')
     setAddingQuestion(false)
@@ -86,7 +84,6 @@ export function PointView({
   const overlay = userData.overlays[pid]
   // 覆盖层生效：显示用户改写后的标题与正文
   const displayTitle = overlay?.title ?? point.title
-  const displayBody = overlay?.body ?? point.body
   const myQuestions = userData.questions.filter((q) => q.pointId === pid)
 
   const handleAnswer = (result: AnswerResult) => {
@@ -177,7 +174,6 @@ export function PointView({
         pid={pid}
         overlay={overlay}
         originalTitle={point.title}
-        originalBody={point.body}
         onChange={saveOverlay}
       />
 
@@ -188,25 +184,6 @@ export function PointView({
         title="教材原书"
         subtitle={`${point.source.volume} · 印刷页 ${point.source.printPage}`}
       />
-
-      {/* 文字版 —— 仅作检索索引，OCR 文字层不可信 */}
-      {displayBody && (
-        <section className="material">
-          <div className="material-bar">
-            <button className="material-btn" onClick={() => setRevealed((v) => !v)}>
-              {revealed ? '收起文字版' : '显示文字版'}
-            </button>
-            <span className="muted small">
-              OCR 文字层不可信 —— 涉及公式与数值的部分以上方原书截图为准
-            </span>
-          </div>
-          {revealed && (
-            <div className="material-body">
-              <pre className="raw-text">{displayBody}</pre>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* 我的补充笔记 */}
       {(overlay?.notes || overlay?.answer || overlay?.blocker) && (
@@ -228,13 +205,15 @@ export function PointView({
         </section>
       )}
 
-      {/* 教材例题 */}
+      {/* 教材例题 —— 同一页的例题合并成一张图，不重复显示 */}
       {point.examples.length > 0 && (
         <section className="examples">
           <h2 className="section-title">教材例题（{point.examples.length}）</h2>
-          <p className="muted small">随讲随练的即时验证，挂在所属考点下</p>
-          {point.examples.map((ex) => (
-            <ExampleCard key={ex.no} example={ex} />
+          <p className="muted small">
+            随讲随练的即时验证，挂在所属考点下 · 同一页的例题合并显示
+          </p>
+          {groupExamplesByPage(point.examples).map((g) => (
+            <ExampleCard key={g.page} examples={g.items} />
           ))}
         </section>
       )}
@@ -293,6 +272,26 @@ export function PointView({
           </article>
         ))}
       </section>
+
+      {/* 同步习题 —— 章末综合，独立成章，不拆进各考点（文档 3.4） */}
+      {chapter.exercises.length > 0 && (
+        <section className="examples">
+          <h2 className="section-title">同步习题（{chapter.exercises.length} 页）</h2>
+          <p className="muted small">
+            章末跨考点综合检验，与上面的随讲随练不同 —— 按页查看原书
+          </p>
+          <div className="point-grid" style={{ marginTop: 8 }}>
+            {chapter.exercises.map((ex) => (
+              <PageChip
+                key={ex.source.pdfPage}
+                volume={ex.source.volume}
+                page={ex.source.pdfPage}
+                printPage={ex.source.printPage}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 自测区 */}
       <section className="selftest">
@@ -360,24 +359,71 @@ export function PointView({
   )
 }
 
-function ExampleCard({ example }: { example: Example }) {
+/** 章末习题页的入口 —— 点开看原书那一页 */
+function PageChip({
+  volume,
+  page,
+  printPage,
+}: {
+  volume: string
+  page: number
+  printPage: number
+}) {
+  const [open, setOpen] = useState(false)
+  const vol = { 上册: 'up', 中册: 'mid', 下册: 'down' }[volume] ?? 'up'
+  const name = `${vol}-${String(page).padStart(4, '0')}.jpg`
+
+  return (
+    <>
+      <button className="point-chip" onClick={() => setOpen(true)}>
+        <span className="point-name">
+          {volume} 印刷页 {printPage}
+        </span>
+        <span className="point-reason">PDF 第 {page} 页</span>
+      </button>
+      {open && (
+        <div className="lightbox" onClick={() => setOpen(false)}>
+          <img src={learningApi.shotUrl(name)} alt="" />
+        </div>
+      )}
+    </>
+  )
+}
+
+/** 把同一页上的例题归为一组，避免重复显示同一张截图 */
+function groupExamplesByPage(examples: Example[]) {
+  const map = new Map<number, Example[]>()
+  for (const ex of examples) {
+    const page = ex.source.pdfPage
+    if (!map.has(page)) map.set(page, [])
+    map.get(page)!.push(ex)
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([page, items]) => ({ page, items }))
+}
+
+function ExampleCard({ examples }: { examples: Example[] }) {
   const [shotFailed, setShotFailed] = useState(false)
   const [zoomed, setZoomed] = useState(false)
-  const name = shotNameFor(example.source)
+  const first = examples[0]
+  const name = shotNameFor(first.source)
+  const nos = examples.map((e) => e.no).join('、')
+  const types = [...new Set(examples.map((e) => e.type))].join(' / ')
 
   return (
     <article className="example">
       <div className="example-head">
         <span className="example-no">
-          【例题{example.no}·{example.type}】
+          【例题{nos}·{types}】
         </span>
         <span className="muted small">
-          {example.source.volume} 印刷页 {example.source.printPage}
+          {first.source.volume} 印刷页 {first.source.printPage}
         </span>
-        {example.status === '待核' && <span className="badge badge-todo">待核</span>}
+        {examples.every((e) => e.status === '待核') && (
+          <span className="badge badge-todo">待核</span>
+        )}
       </div>
-      <p className="example-text">{example.text || '（题干为图片，见下方原书截图）'}</p>
-
       {!shotFailed ? (
         <figure className="shot">
           <img
