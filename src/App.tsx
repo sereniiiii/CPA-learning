@@ -99,8 +99,8 @@ export default function App() {
   /* ---------- 队列 ---------- */
   const queue = useMemo(() => {
     if (!library) return []
-    return buildTodayQueue(learning, library.chapters, todayStr())
-  }, [library, learning])
+    return buildTodayQueue(learning, library.chapters, subjectId, todayStr())
+  }, [library, learning, subjectId])
 
   const masteryOf = useCallback(
     (pid: string) => currentMastery(learning, pid, todayStr()),
@@ -396,16 +396,19 @@ export default function App() {
         ) : tab === 'review' ? (
           <ReviewView
             state={learning}
+            subjectId={subjectId}
             onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
           />
         ) : tab === 'wrong' ? (
           <WrongBookView
             state={learning}
+            subjectId={subjectId}
             onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
           />
         ) : tab === 'archive' ? (
           <ArchiveView
             state={learning}
+            subjectId={subjectId}
             onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
           />
         ) : (

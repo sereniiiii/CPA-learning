@@ -203,6 +203,13 @@ export interface WrongItem {
    * 例题做错也直接进错题本（按科目+章节归类），所以要能区分来源。
    */
   pointId: string
+  /**
+   * 所属科目 id（cwc / sts / eco）。
+   *
+   * **错题本必须按科目隔开** —— 税法的错题不能和财管的混在一起。
+   * 老数据没有这个字段时，按 pointId 前缀猜，猜不到归到当前科目。
+   */
+  subjectId?: string
   /** 例题级错题的额外信息 */
   exampleId?: string | null
   /** 例题题干摘要（列表显示） */
@@ -423,6 +430,31 @@ export const EMPTY_USER_DATA: UserData = {
  * 只用 (章, 考点号) 会在同一章的不同节之间冲突
  * （第 1 节的考点01 与第 2 节的考点01 编号相同）。
  */
+/**
+ * 科目限定的考点 ID。
+ *
+ * 两科都有 ch01-s01-p01，所以学习状态（掌握度/错题）必须带科目前缀，
+ * 否则税法的「长期投资」会覆盖财管的。
+ */
+export function scopedPointId(
+  subjectId: string,
+  chapterId: string,
+  sectionNum: number,
+  pointNum: number,
+): string {
+  return `${subjectId}:${pointId(chapterId, sectionNum, pointNum)}`
+}
+
+/** 从带科目的 ID 里取出科目与原始考点 ID */
+export function splitScopedId(scoped: string): {
+  subjectId: string
+  pointId: string
+} | null {
+  const i = scoped.indexOf(':')
+  if (i <= 0) return null
+  return { subjectId: scoped.slice(0, i), pointId: scoped.slice(i + 1) }
+}
+
 export function pointId(
   chapterId: string,
   sectionNum: number,

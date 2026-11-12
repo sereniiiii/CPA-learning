@@ -86,6 +86,8 @@ def main() -> int:
         if (i + 1) % 50 == 0:
             print(f"  已处理 {i + 1}/{len(files)}")
 
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump({"pages": pages}, f, ensure_ascii=False, indent=1)
 

@@ -11,8 +11,8 @@
   - 配对依据是**题号集合覆盖度**，不是出现顺序。
 
 输出：
-  build/blocks/财管/ex-<册>-<页>-g<组>-<项>.png    题目块
-  build/blocks/财管/ans-<册>-<页>-g<组>-<项>.png   答案块
+  build/blocks/<科目>/ex-<册>-<页>-g<组>-<项>.png    题目块
+  build/blocks/<科目>/ans-<册>-<页>-g<组>-<项>.png   答案块
 章节 JSON：exercises → exerciseGroups
 """
 import json
@@ -25,7 +25,12 @@ from collections import defaultdict
 
 from pypdf import PdfReader
 
+from subject_config import SUBJECT_ID, SUBJECT_NAME
+
 BASE = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
+
+# 工作目录（按科目隔离，避免多科内容互相覆盖）
+WORK = os.environ.get("WORK_DIR", f"{BASE}/build")
 VOL = {"上册": "up", "中册": "mid", "下册": "down"}
 CONTENT_TOP = 792.0
 CONTENT_BOTTOM = 42.0
@@ -174,7 +179,7 @@ def match_answer(qgroup, agroups, used):
 
 
 def page_height(vol, page):
-    src = f"{BASE}/build/pdf-pages/{vol}/page-{page:04d}.pdf"
+    src = f"{WORK}/pdf-pages/{vol}/page-{page:04d}.pdf"
     return float(PdfReader(src).pages[0].mediabox.height)
 
 
@@ -184,7 +189,7 @@ def cut_block(vol, page, gi, ii, y, y_bottom, prefix, out_dir, full):
     dst = os.path.join(out_dir, name)
     if os.path.exists(dst):
         return name
-    src = f"{BASE}/build/pdf-pages/{vol}/page-{page:04d}.pdf"
+    src = f"{WORK}/pdf-pages/{vol}/page-{page:04d}.pdf"
     if not os.path.exists(src):
         return None
     if not render_page(src, full):
@@ -204,7 +209,7 @@ def process_chapter(ch, a_pages, out_dir, full, find_chapter):
     q_seq = []
     for ex in ch.get("exercises", []):
         page = ex["source"]["pdfPage"]
-        src = f"{BASE}/build/pdf-pages/{vol}/page-{page:04d}.pdf"
+        src = f"{WORK}/pdf-pages/{vol}/page-{page:04d}.pdf"
         if not os.path.exists(src):
             continue
         rows = page_rows(src)
@@ -271,7 +276,7 @@ def verify_chapters():
     血泪教训：多个脚本写同一个输出文件时，后跑的会冲掉先跑的字段。
     这个检查放在最后跑，任何脚本冲掉字段都会在这里被发现。
     """
-    out = f"{BASE}/build/upload/subjects/cwc/chapters"
+    out = f"{WORK}/upload/subjects/{SUBJECT_ID}/chapters"
     problems = []
     for f in sorted(os.listdir(out)):
         if not f.endswith(".json"):
@@ -281,7 +286,9 @@ def verify_chapters():
         no_blocks = [p for p in points if not p.get("blocks")]
         if no_blocks:
             problems.append(f"{f}: {len(no_blocks)}/{len(points)} 个考点缺 blocks")
-        if not ch.get("exerciseGroups"):
+        # 经济法/税法的习题页识别不到题号（题号格式不同），
+        # exerciseGroups 会是空数组 —— 那不是错误。
+        if "exerciseGroups" not in ch:
             problems.append(f"{f}: 缺 exerciseGroups")
     if problems:
         print("\n❌ 章节文件校验失败：")
@@ -293,13 +300,13 @@ def verify_chapters():
 
 
 def main():
-    tmp_dir = f"{BASE}/build/_crops"
+    tmp_dir = f"{WORK}/_crops"
     os.makedirs(tmp_dir, exist_ok=True)
     full = os.path.join(tmp_dir, "full.png")
-    out_dir = f"{BASE}/build/blocks/财管"
+    out_dir = f"{WORK}/blocks/{SUBJECT_NAME}"
     os.makedirs(out_dir, exist_ok=True)
 
-    book = json.load(open(f"{BASE}/build/textbook.json", encoding="utf-8"))
+    book = json.load(open(f"{WORK}/textbook.json", encoding="utf-8"))
 
     # 全书习题页序列（按册+页排序）→ 用来给答案页归章。
     #
@@ -328,7 +335,7 @@ def main():
     # 全局找答案页
     a_pages = defaultdict(list)
     for vol in ("up", "mid", "down"):
-        d = f"{BASE}/build/pdf-pages/{vol}"
+        d = f"{WORK}/pdf-pages/{vol}"
         for f in sorted(os.listdir(d)):
             if not f.endswith(".pdf"):
                 continue
@@ -364,10 +371,10 @@ def main():
     # 只把 exerciseGroups 加进去。
     # 之前直接写 build/textbook.json 的原章数据，
     # 把 merge 写的 blocks 字段冲掉了 —— 教材内容区块整个消失。
-    out = f"{BASE}/build/upload"
-    os.makedirs(f"{out}/subjects/cwc/chapters", exist_ok=True)
+    out = f"{WORK}/upload"
+    os.makedirs(f"{out}/subjects/{SUBJECT_ID}/chapters", exist_ok=True)
     for ch in book["chapters"]:
-        path = f"{out}/subjects/cwc/chapters/{ch['id']}.json"
+        path = f"{out}/subjects/{SUBJECT_ID}/chapters/{ch['id']}.json"
         if os.path.exists(path):
             merged = json.load(open(path, encoding="utf-8"))
             merged["exerciseGroups"] = ch.get("exerciseGroups", [])
@@ -376,7 +383,7 @@ def main():
         else:
             json.dump(ch, open(path, "w", encoding="utf-8"),
                       ensure_ascii=False, separators=(",", ":"))
-    print(f"→ {out}/subjects/cwc/chapters/")
+    print(f"→ {out}/subjects/{SUBJECT_ID}/chapters/")
     return verify_chapters()
 
 

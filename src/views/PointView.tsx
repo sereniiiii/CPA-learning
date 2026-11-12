@@ -5,7 +5,7 @@ import {
   Point,
   UserData,
 } from '../types'
-import { ErrorCause, Example, ImageMark, UserQuestion, pointId } from '../types'
+import { ErrorCause, Example, ImageMark, UserQuestion, scopedPointId } from '../types'
 import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
@@ -88,7 +88,7 @@ export function PointView({
   const secNum = chapter.sections.find((s) =>
     s.points.some((x) => x.num === pointNum),
   )?.num ?? 0
-  const pid = pointId(chapterId, secNum, pointNum)
+  const pid = scopedPointId(subjectId, chapterId, secNum, pointNum)
   let point: Point | null = null
   for (const sec of chapter.sections) {
     const p = sec.points.find((x) => x.num === pointNum)

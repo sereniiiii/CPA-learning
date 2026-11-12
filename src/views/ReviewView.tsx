@@ -1,16 +1,22 @@
 import { useMemo } from 'react'
 import { groupWrongByCause } from '../learning'
-import { ErrorCause, LearningState, WrongItem } from '../types'
+import { ErrorCause, LearningState, WrongItem, ReviewState } from '../types'
 import { ERROR_CAUSES, parsePointId } from '../types'
 
 /** 复习区：全部到期队列，按逾期程度排序 */
 export function ReviewView({
   state,
+  subjectId,
   onOpenPoint,
 }: {
   state: LearningState
+  subjectId: string
   onOpenPoint: (chapterId: string, pointNum: number) => void
 }) {
+  const scoped = useMemo(
+    () => filterBySubject(state, subjectId),
+    [state, subjectId],
+  )
   const items = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
     const out: Array<{
@@ -19,7 +25,7 @@ export function ReviewView({
       overdue: number
       mastery: number
     }> = []
-    for (const [pid, r] of Object.entries(state.reviews ?? {})) {
+    for (const [pid, r] of Object.entries(scoped.reviews ?? {})) {
       if (!r.due) continue
       const overdue = Math.round(
         (new Date(today).getTime() - new Date(r.due).getTime()) / 86400000,
@@ -29,7 +35,7 @@ export function ReviewView({
     }
     out.sort((a, b) => b.overdue - a.overdue)
     return out
-  }, [state.reviews])
+  }, [scoped.reviews])
 
   const groups = useMemo(() => {
     const map = new Map<string, typeof items>()
@@ -83,13 +89,19 @@ export function ReviewView({
 /** 错题本：按错因标签分组 */
 export function WrongBookView({
   state,
+  subjectId,
   onOpenPoint,
 }: {
   state: LearningState
+  subjectId: string
   onOpenPoint: (chapterId: string, pointNum: number) => void
 }) {
-  const groups = useMemo(() => groupWrongByCause(state.wrongBook), [state.wrongBook])
-  const total = Object.keys(state.wrongBook ?? {}).length
+  const scoped = useMemo(
+    () => filterBySubject(state, subjectId),
+    [state, subjectId],
+  )
+  const groups = useMemo(() => groupWrongByCause(scoped.wrongBook), [scoped.wrongBook])
+  const total = Object.keys(scoped.wrongBook ?? {}).length
 
   return (
     <div className="canvas">
@@ -185,15 +197,21 @@ function DecayCurve({
 
 export function ArchiveView({
   state,
+  subjectId,
   onOpenPoint,
 }: {
   state: LearningState
+  subjectId: string
   onOpenPoint: (chapterId: string, pointNum: number) => void
 }) {
+  const scoped = useMemo(
+    () => filterBySubject(state, subjectId),
+    [state, subjectId],
+  )
   const items = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
     const out: Array<{ pid: string; mastery: number; decayed: number; days: number }> = []
-    for (const [pid, r] of Object.entries(state.reviews ?? {})) {
+    for (const [pid, r] of Object.entries(scoped.reviews ?? {})) {
       if (r.mastery < 60) continue
       const days = r.lastReviewed
         ? Math.round(
@@ -206,7 +224,7 @@ export function ArchiveView({
     }
     out.sort((a, b) => a.decayed - b.decayed)
     return out
-  }, [state.reviews])
+  }, [scoped.reviews])
 
   return (
     <div className="canvas">
@@ -261,4 +279,40 @@ export function CausePicker({
       ))}
     </div>
   )
+}
+
+/**
+ * 按科目过滤学习状态。
+ *
+ * 学习状态的 key 现在是「科目:考点ID」（如 `cwc:ch01-s01-p01`），
+ * 所以切科目时只看得到该科目的掌握度与错题。
+ * 老数据（没有科目前缀）一律归到当前科目 —— 升级后不丢数据。
+ */
+export function filterBySubject(
+  state: LearningState,
+  subjectId: string,
+): LearningState {
+  const reviews: Record<string, ReviewState> = {}
+  const wrongBook: Record<string, WrongItem> = {}
+
+  for (const [key, r] of Object.entries(state.reviews ?? {})) {
+    const i = key.indexOf(':')
+    if (i < 0) {
+      // 老数据：没有科目前缀 → 归当前科目
+      reviews[key] = r
+    } else if (key.slice(0, i) === subjectId) {
+      reviews[key.slice(i + 1)] = r
+    }
+  }
+
+  for (const [key, w] of Object.entries(state.wrongBook ?? {})) {
+    const i = key.indexOf(':')
+    if (i < 0) {
+      wrongBook[key] = w
+    } else if (key.slice(0, i) === subjectId) {
+      wrongBook[key.slice(i + 1)] = { ...w, subjectId }
+    }
+  }
+
+  return { ...state, reviews, wrongBook }
 }

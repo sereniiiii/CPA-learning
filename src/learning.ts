@@ -9,16 +9,7 @@
  *
  * 掌握度只由重测驱动（文档 3.6）：浏览与重读都不涨。
  */
-import {
-  DECAY_PER_DAY,
-  ErrorCause,
-  INTERVALS,
-  LearningState,
-  MASTERY_GAIN,
-  ReviewState,
-  WrongItem,
-  pointId,
-} from './types'
+import { DECAY_PER_DAY, ErrorCause, INTERVALS, LearningState, MASTERY_GAIN, ReviewState, WrongItem, scopedPointId } from './types'
 
 export function todayStr(d = new Date()): string {
   const y = d.getFullYear()
@@ -203,6 +194,7 @@ export function buildTodayQueue(
       points: Array<{ num: number; title: string; difficulty: string | null; hot: number | null }>
     }>
   }>,
+  subjectId = 'cwc',
   today = todayStr(),
 ): QueueItem[] {
   const items: QueueItem[] = []
@@ -211,7 +203,7 @@ export function buildTodayQueue(
   for (const ch of chapters) {
     for (const sec of ch.sections) {
       for (const p of sec.points) {
-        const pid = pointId(ch.id, sec.num, p.num)
+        const pid = scopedPointId(subjectId, ch.id, sec.num, p.num)
         if (seen.has(pid)) continue
 
         const wrongItem = state.wrongBook[pid]
@@ -245,7 +237,7 @@ export function buildTodayQueue(
   for (const ch of chapters) {
     for (const sec of ch.sections) {
       for (const p of sec.points) {
-        const pid = pointId(ch.id, sec.num, p.num)
+        const pid = scopedPointId(subjectId, ch.id, sec.num, p.num)
         if (seen.has(pid)) continue
         if (state.reviews[pid]) continue
         fresh.push({

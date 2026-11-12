@@ -12,17 +12,22 @@ import json
 import os
 import sys
 
+from subject_config import SUBJECT_ID
+
 BASE = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
+
+# 工作目录（按科目隔离，避免多科内容互相覆盖）
+WORK = os.environ.get("WORK_DIR", f"{WORK}")
 
 
 def main():
-    src = sys.argv[1] if len(sys.argv) > 1 else f"{BASE}/build/subjectives.json"
-    subject = sys.argv[2] if len(sys.argv) > 2 else "cwc"
+    src = sys.argv[1] if len(sys.argv) > 1 else f"{WORK}/subjectives.json"
+    subject = sys.argv[2] if len(sys.argv) > 2 else SUBJECT_ID
 
     data = json.load(open(src, encoding="utf-8"))
     topics = data["topics"]
 
-    out_dir = f"{BASE}/build/upload/subjects/{subject}/subjectives"
+    out_dir = f"{WORK}/upload/subjects/{subject}/subjectives"
     os.makedirs(out_dir, exist_ok=True)
 
     index = {

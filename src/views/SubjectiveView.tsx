@@ -61,7 +61,7 @@ export function SubjectiveView({
   }, [openTopic, subjectId])
 
   const saveNote = (topic: Topic, content: string, rating: 'none' | 'partial' | 'correct') => {
-    const prev = userData.subjectiveNotes[topic.id]
+    const prev = userData.subjectiveNotes[scopedTopicId(subjectId, topic.id)]
     const now = new Date().toISOString()
     // 每次改档位记一条轨迹 —— 主观题只能自评，
     // 没有轨迹就看不出「练了 5 次有没有进步」。
@@ -70,7 +70,7 @@ export function SubjectiveView({
       ...userData,
       subjectiveNotes: {
         ...userData.subjectiveNotes,
-        [topic.id]: {
+        [scopedTopicId(subjectId, topic.id)]: {
           topicId: topic.id,
           topicTitle: topic.title,
           content,
@@ -99,7 +99,7 @@ export function SubjectiveView({
         </div>
         <div className="tree-list">
           {topics.map((t) => {
-            const note = userData.subjectiveNotes[t.id]
+            const note = userData.subjectiveNotes[scopedTopicId(subjectId, t.id)]
             const active = openTopic === t.id
             return (
               <button
@@ -133,7 +133,7 @@ export function SubjectiveView({
         {!openTopic && (
           <div className="chapter-list">
             {topics.map((t) => {
-              const note = userData.subjectiveNotes[t.id]
+              const note = userData.subjectiveNotes[scopedTopicId(subjectId, t.id)]
               return (
                 <section key={t.id} className="chapter">
                   <button className="chapter-head" onClick={() => setOpenTopic(t.id)}>
@@ -163,7 +163,7 @@ export function SubjectiveView({
           <SubjectiveDetail
             subjectId={subjectId}
             topic={detail}
-            note={userData.subjectiveNotes[openTopic]}
+            note={userData.subjectiveNotes[scopedTopicId(subjectId, openTopic)]}
             onSave={(content, rating) => {
               const t = topics.find((x) => x.id === openTopic)
               if (t) saveNote(t, content, rating)
@@ -373,4 +373,13 @@ function ShotImage({ page, subjectId }: { page: number; subjectId: string }) {
       )}
     </>
   )
+}
+
+/**
+ * 主观题记录的 key —— 带科目前缀。
+ *
+ * 两科都有 topic01..topic17，不隔离会互相覆盖。
+ */
+function scopedTopicId(subjectId: string, topicId: string): string {
+  return `${subjectId}:${topicId}`
 }

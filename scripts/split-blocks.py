@@ -12,8 +12,8 @@
   3. 用 PdfWriter 设置 cropbox，把每块裁成独立 PDF
   4. sips 把裁剪后的 PDF 转成 PNG（矢量文字渲染，比截图清晰）
 
-输出：build/blocks/<科目>/<类型>-<ID>.png
-      + build/blocks/manifest.json（每个块的元数据与归属）
+输出：{WORK}/blocks/<科目>/<类型>-<ID>.png
+      + {WORK}/blocks/manifest.json（每个块的元数据与归属）
 """
 import json
 import os
@@ -24,10 +24,21 @@ import sys
 from datetime import date
 
 from pypdf import PdfReader, PdfWriter
+
+from subject_config import VOL_DIR
+
+# ---------- 工作目录（按科目隔离，避免多科内容互相覆盖） ----------
+ROOT = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
+WORK = os.environ.get("WORK_DIR", f"{ROOT}/build")
 from pypdf.generic import RectangleObject
 
 # ---------- 识别切分点 ----------
-POINT_TITLE = re.compile(r'^考点\s*\d{1,2}\b')
+# 考点标题。
+#
+# OCR 文本有噪声：数字可能被认成中文（1 → 一）、前面可能粘上别的字
+# （「一考点10 …」「- 考点07 …」）、数字与文字间可能有空格。
+# 所以允许少量前缀噪声 + 中英文数字。
+POINT_TITLE = re.compile(r'^.{0,3}?考点\s*([0-9]{1,2}|[一二三四五六七八九十]{1,2})(?:\b|(?=\s))')
 EXAMPLE_TITLE = re.compile(r'【\s*例题\s*(\d+)')
 SECTION_TITLE = re.compile(r'^第[一二三四五六七八九十]+节')
 ANSWER_ROW = re.compile(r'例题.{0,4}答案')
@@ -38,6 +49,13 @@ ANSWER_ROW = re.compile(r'例题.{0,4}答案')
 #   解析   → 紧跟在例题后面，必须并入例题（用户要求：例题和解析要在一起）
 #   点拨等 → 是知识点的补充，独立成块，归到所属考点
 LABEL_TITLE = re.compile(r'^(解析|点拨|辨析|说明|注意|小结)\s*$')
+
+# 「考点名 5年热点N次」—— 经济法/税法正文里的考点小标题。
+#
+# 财管正文用的是「考点NN 标题」，经济法/税法用的是「考点名 5年热点N次」
+# 这种加粗行（有时还带「考点NN）」前缀）。两种都要认。
+HOT_TITLE = re.compile(r'^(.{2,30}?)\s*5\s*年\s*热\s*点\s*[\d|丨l]+\s*次')
+HOT_TITLE_LOOSE = re.compile(r'^(.{2,30}?)\s*5\s*年\s*热\s*点')
 ANSWER_LABEL = re.compile(r'^解析\s*$')
 
 # 页面上下安全边界（排除页眉/页脚）
@@ -45,13 +63,38 @@ CONTENT_TOP = 792.0     # 高于此为页眉
 CONTENT_BOTTOM = 42.0   # 低于此为页脚/水印
 
 SUBJECTS = {
-    "up": "财管",
-    "mid": "财管",
-    "down": "财管",
+    "up": VOL_DIR["up"],
+    "mid": VOL_DIR["mid"],
+    "down": VOL_DIR["down"],
 }
 
 
-def page_items(path):
+# 预加载 pages.json 的文字块（原生文字层 + OCR 合并结果）
+_PAGE_BLOCKS = {}
+
+
+def load_page_blocks(text_dir):
+    """
+    载入 extract-with-ocr.py 产出的 pages.json。
+
+    为什么不用直接读 PDF：
+      扫描版 PDF 部分页没有文字层，直接读会漏掉整页的切分点。
+      pages.json 里已经合并了「原生文字层 + Vision OCR」，坐标口径一致。
+    """
+    _PAGE_BLOCKS.clear()
+    if not text_dir or not os.path.isdir(text_dir):
+        return
+    for name in sorted(os.listdir(text_dir)):
+        if not name.endswith(".json"):
+            continue
+        data = json.load(open(os.path.join(text_dir, name), encoding="utf-8"))
+        for p in data.get("pages", []):
+            blocks = p.get("blocks") or []
+            if blocks:
+                _PAGE_BLOCKS[p["file"]] = blocks
+
+
+def page_items(path, text_dir=None):
     """提取页面上所有文字块及其坐标"""
     r = PdfReader(path)
     page = r.pages[0]
@@ -71,6 +114,13 @@ def page_items(path):
         items.append({"y": float(tm[5]), "x": float(tm[4]), "text": t, "size": font_size or 10})
 
     page.extract_text(visitor_text=visitor)
+
+    # 优先用 pages.json（合并了 OCR）
+    fname = os.path.basename(path)
+    merged = _PAGE_BLOCKS.get(fname)
+    if merged:
+        return r, page, W, H, merged
+
     return r, page, W, H, items
 
 
@@ -89,7 +139,16 @@ def find_boundaries(items):
             continue
         size = it.get("size") or 11.0
         if POINT_TITLE.match(t):
-            marks.append({"y": y, "size": size, "kind": "point", "label": t, "num": None})
+            m2 = POINT_TITLE.match(t)
+            num = int(m2.group(1)) if m2.groups() else None
+            marks.append({"y": y, "size": size, "kind": "point", "label": t, "num": num})
+        elif HOT_TITLE.match(t) or HOT_TITLE_LOOSE.match(t):
+            m2 = HOT_TITLE.match(t) or HOT_TITLE_LOOSE.match(t)
+            name = m2.group(1).strip()
+            # 名字里可能带「考点NN）」前缀，取出题号
+            pm = re.match(r'^.{0,3}?考点\s*([0-9]{1,2})', name)
+            num = int(pm.group(1)) if pm else None
+            marks.append({"y": y, "size": size, "kind": "point", "label": name, "num": num})
         elif EXAMPLE_TITLE.match(t):
             m = EXAMPLE_TITLE.match(t)
             marks.append({"y": y, "size": size, "kind": "example", "label": t, "num": int(m.group(1))})
@@ -186,15 +245,18 @@ def crop_png(full_png, out_png, pdf_h, y_top, y_bottom):
 
 def main():
     base = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
-    pages_root = os.path.join(base, "build/pdf-pages")
-    out_root = os.path.join(base, "build/blocks")
-    tmp_dir = os.path.join(base, "build/_crops")
+    pages_root = os.path.join(WORK, "pdf-pages")
+    out_root = os.path.join(WORK, "blocks")
+    tmp_dir = os.path.join(WORK, "_crops")
     os.makedirs(out_root, exist_ok=True)
     os.makedirs(tmp_dir, exist_ok=True)
 
     manifest = []
     stats = {"pages": 0, "blocks": 0, "rendered": 0}
     # 跨页上下文：考点/例题常跨页延续
+    text_dir = os.path.join(WORK, "text")
+    load_page_blocks(text_dir)
+
     current_point = None      # "up-0027-00" 形式：册-页-序
     current_example = None
     page_answers = {}        # "册-页" → {例题号: 答案}
@@ -215,7 +277,7 @@ def main():
             stats["pages"] += 1
 
             try:
-                r, page, W, H, items = page_items(src)
+                r, page, W, H, items = page_items(src, text_dir)
             except Exception as exc:
                 print(f"  [{vol}] {fname} 读取失败：{exc}")
                 continue

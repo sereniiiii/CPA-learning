@@ -20,6 +20,8 @@ import json
 import os
 import re
 import sys
+
+from subject_config import SUBJECT_TITLE, SUBJECT_SOURCE
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -110,6 +112,72 @@ def extract_print_page(text: str, fallback: int) -> int:
 
 
 # ---------------------------------------------------------------- 阶段一：切章
+
+def split_chapters_by_header(pages: list) -> list:
+    """
+    通用切章：按**页眉章号变化**分界。
+
+    为什么需要这个：
+      split_chapters() 依赖「考情速览」锚点，那是财管教材的编排特色。
+      经济法/税法没有这一节，锚点不全 → 解析出 0 章。
+      但每页页眉都带「第X章 章名」，这个是所有 CPA 教材共有的。
+
+    排除目录页：目录页的页眉也是章名，但内容是章目列表。
+      判据是「该页含考点框架或考情速览」——章首页才有这些。
+    """
+    starts = []
+    cur_num = 0
+    cur_title = ""
+    cur_idx = None
+    seen_nums = set()
+
+    for i, p in enumerate(pages):
+        text = p.get("text", "")
+        if not text:
+            continue
+        # 页眉章名：扫描所有行。
+        # OCR 的行序不是阅读序（页码、目录项、页眉交错），
+        # 页眉可能出现在任何位置 —— 所以不能只看前几行。
+        # 误判风险由「章首页必须含考点框架」这条约束兜住。
+        num = 0
+        title = ""
+        for line in text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            m = re.match(r"^第([一二三四五六七八九十]+)章\s+(\S+)", line)
+            if m:
+                cand = CN_NUM.get(m.group(1), 0)
+                if cand:
+                    num = cand
+                    title = re.sub(r"\d{1,4}$", "", m.group(2).strip()).strip()
+                    break
+
+        if num == 0:
+            continue
+
+        # 章首页判据：含「考点」或「考情速览」——目录页没有
+        is_chapter_start = bool(
+            re.search(r"考点\s*\d{1,2}\b", text) or "考情速览" in text
+        )
+
+        if num != cur_num:
+            if cur_idx is not None and cur_title:
+                starts.append({"pageIndex": cur_idx, "num": cur_num, "title": cur_title})
+            cur_num = num
+            cur_title = title
+            cur_idx = i if is_chapter_start else None
+            seen_nums.add(num)
+        elif cur_idx is None and is_chapter_start:
+            cur_idx = i
+            if not cur_title:
+                cur_title = title
+
+    if cur_idx is not None and cur_title:
+        starts.append({"pageIndex": cur_idx, "num": cur_num, "title": cur_title})
+
+    return starts
+
 
 def split_chapters(pages: list, titles: dict | None = None, last_num: int = 0) -> tuple[list, int]:
     """
@@ -223,6 +291,14 @@ def split_chapters(pages: list, titles: dict | None = None, last_num: int = 0) -
         used.add(num)
         last_num = num
         starts.append({"pageIndex": i, "num": num, "title": title})
+
+    # fallback：上面的逻辑依赖「考情速览 + 学习指南」这些**财管教材特有**的结构，
+    # 其他教材（经济法/税法）没有 → 切不出章时改用通用的「页眉章号变化」法。
+    if not starts:
+        alt = split_chapters_by_header(pages)
+        if alt:
+            return alt, max((x["num"] for x in alt), default=0)
+
     return starts, last_num
 
 
@@ -363,6 +439,15 @@ def parse_framework(text: str) -> list:
     return points
 
 
+# 「考点名 5年热点N次」—— 经济法/税法正文里的考点小标题。
+#
+# 财管正文用「考点NN 标题」，所以财管走 POINT_TITLE 那条路；
+# 经济法/税法没有「考点NN」标题，只有这种带热点统计的加粗行。
+# 两种教材的正文都用它建考点，归并时才能一一对应。
+HOT_POINT = re.compile(r"^(.{2,30}?)\s*5\s*年\s*热\s*点\s*[\d|丨l]+\s*次")
+HOT_POINT_LOOSE = re.compile(r"^(.{2,30}?)\s*5\s*年\s*热\s*点")
+
+
 def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
     vol = VOLUMES[volume_key]
     full = "\n".join(strip_running(p["text"]) for p in pages)
@@ -374,6 +459,7 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
     cur_section = None
     cur_point = None
     in_analysis = False   # 是否已进入「考点剖析」区
+    seq_no = 0           # 章内考点序号（按正文出现顺序）
 
     def ensure_section(title: str, num: int):
         nonlocal cur_section, cur_point
@@ -419,6 +505,22 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
 
             if s == "考点剖析":
                 in_analysis = True
+                i += 1
+                continue
+
+            # 热点标题 → 新考点（经济法/税法正文里的考点起点）
+            hm = HOT_POINT.match(s) or HOT_POINT_LOOSE.match(s)
+            if hm:
+                in_analysis = True
+                name = hm.group(1).strip()
+                # 名字可能带「考点NN）」前缀
+                pm = re.match(r"^.{0,3}?考点\s*([0-9]{1,2})", name)
+                if pm:
+                    name = name[pm.end():].strip(" ）)】]") or name
+                hot_m = re.search(r"5\s*年\s*热\s*点\s*([\d|丨l]+)", s)
+                hot = int(re.sub(r"\D", "", hot_m.group(1))) if hot_m else None
+                seq_no += 1
+                ensure_point(seq_no, name, None, hot, seq, print_page)
                 i += 1
                 continue
 
@@ -609,8 +711,8 @@ def main() -> int:
 
     out = {
         "meta": {
-            "title": "2026 注会 CPA《轻一》· 财务成本管理",
-            "source": "东奥《2026 年注册会计师考试应试考点及同步习题 · 财务成本管理》上/中/下册（闫华红 主编）",
+            "title": SUBJECT_TITLE,
+                "source": SUBJECT_SOURCE,
             "version": "2026-11",
             "generatedAt": date.today().isoformat(),
             "chapterCount": len(chapters),

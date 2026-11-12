@@ -17,7 +17,12 @@ import sys
 
 from pypdf import PdfReader
 
+from subject_config import SUBJECT_NAME
+
 BASE = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
+
+# 工作目录（按科目隔离，避免多科内容互相覆盖）
+WORK = os.environ.get("WORK_DIR", f"{BASE}/build")
 CONTENT_TOP = 792.0
 CONTENT_BOTTOM = 42.0
 VOL = {"上册": "up", "中册": "mid", "下册": "down"}
@@ -61,16 +66,16 @@ def crop_png(full_png, out_png, pdf_h, y_top, y_bottom):
 
 
 def main():
-    tmp_dir = f"{BASE}/build/_crops"
+    tmp_dir = f"{WORK}/_crops"
     os.makedirs(tmp_dir, exist_ok=True)
     full = os.path.join(tmp_dir, "full.png")
-    out_dir = f"{BASE}/build/blocks/财管"
+    out_dir = f"{WORK}/blocks/{SUBJECT_NAME}"
     os.makedirs(out_dir, exist_ok=True)
 
-    book = json.load(open(f"{BASE}/build/textbook.json", encoding="utf-8"))
+    book = json.load(open(f"{WORK}/textbook.json", encoding="utf-8"))
 
     # ---- 主观题页 ----
-    subs = json.load(open(f"{BASE}/build/subjectives.json", encoding="utf-8"))
+    subs = json.load(open(f"{WORK}/subjectives.json", encoding="utf-8"))
     sub_pages = set()
     for t in subs["topics"]:
         for p in t.get("pages", []):
@@ -78,7 +83,7 @@ def main():
 
     made_sub = 0
     for page in sorted(sub_pages):
-        src = f"{BASE}/build/pdf-pages/down/page-{page:04d}.pdf"
+        src = f"{WORK}/pdf-pages/down/page-{page:04d}.pdf"
         if not os.path.exists(src):
             continue
         dst = os.path.join(out_dir, f"down-{page:04d}.png")
@@ -101,7 +106,7 @@ def main():
         vol = VOL[ch["volume"]]
         for ex in ch.get("exercises", []):
             page = ex["source"]["pdfPage"]
-            src = f"{BASE}/build/pdf-pages/{vol}/page-{page:04d}.pdf"
+            src = f"{WORK}/pdf-pages/{vol}/page-{page:04d}.pdf"
             if not os.path.exists(src):
                 continue
             dst = os.path.join(out_dir, f"exercise-{vol}-{page:04d}.png")

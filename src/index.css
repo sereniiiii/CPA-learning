@@ -3095,7 +3095,37 @@ a { color: var(--blue); }
     display: none;
   }
 
+  /* 科目切换器：窄屏时挪到顶部，横排 —— 手机上必须能切科目 */
   .subject-switcher {
+    order: 0;
+    flex-direction: row;
+    gap: 6px;
+    padding: 7px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--nav-bg);
+  }
+
+  .subject-switcher::-webkit-scrollbar {
+    display: none;
+  }
+
+  .subject-tab {
+    flex: 0 0 auto;
+    padding: 5px 11px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .subject-tab.is-active {
+    background: var(--nav-active);
+    border-color: var(--nav-active);
+  }
+
+  .subject-count {
     display: none;
   }
 

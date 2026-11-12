@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChapterMeta, SubjectLibrary, pointId } from '../types'
+import { ChapterMeta, SubjectLibrary, scopedPointId } from '../types'
 
 /**
  * 教材库视图：左侧目录树 + 右侧章节卡片。
@@ -7,7 +7,7 @@ import { ChapterMeta, SubjectLibrary, pointId } from '../types'
  */
 export function LibraryView({
   index,
-  subjectId: _subjectId,
+  subjectId,
   treeOpen = false,
   onTreeClose,
   activePoint,
@@ -104,6 +104,7 @@ export function LibraryView({
             <ChapterTree
               key={ch.id}
               meta={ch}
+              subjectId={subjectId}
               expanded={openChapter === ch.id || query.trim() !== ''}
               activePoint={activePoint}
               onToggle={() => onOpenChapter(ch.id)}
@@ -141,6 +142,7 @@ export function LibraryView({
           {index.chapters.map((ch) => (
             <ChapterCard
               key={ch.id}
+              subjectId={subjectId}
               meta={ch}
               open={openChapter === ch.id}
               onToggle={() => onOpenChapter(ch.id)}
@@ -158,6 +160,7 @@ export function LibraryView({
 
 function ChapterTree({
   meta,
+  subjectId,
   expanded,
   activePoint,
   onToggle,
@@ -167,6 +170,7 @@ function ChapterTree({
   isWrong,
 }: {
   meta: ChapterMeta
+  subjectId: string
   expanded: boolean
   activePoint: { chapterId: string; pointNum: number } | null
   onToggle: () => void
@@ -198,7 +202,7 @@ function ChapterTree({
                 第{sec.num}节 {sec.title}
               </div>
               {sec.points.map((p) => {
-                const pid = pointId(meta.id, sec.num, p.num)
+                const pid = scopedPointId(subjectId, meta.id, sec.num, p.num)
                 const active =
                   activePoint?.chapterId === meta.id && activePoint.pointNum === p.num
                 const m = masteryOf(pid)
@@ -240,6 +244,7 @@ function ChapterTree({
 
 function ChapterCard({
   meta,
+  subjectId,
   open,
   onToggle,
   onOpenPoint,
@@ -248,6 +253,7 @@ function ChapterCard({
   isWrong,
 }: {
   meta: ChapterMeta
+  subjectId: string
   open: boolean
   onToggle: () => void
   onOpenPoint: (chapterId: string, pointNum: number) => void
@@ -326,7 +332,7 @@ function ChapterCard({
               </h4>
               <div className="point-grid" style={{ marginTop: 7 }}>
                 {sec.points.map((p) => {
-                  const pid = pointId(meta.id, sec.num, p.num)
+                  const pid = scopedPointId(subjectId, meta.id, sec.num, p.num)
                   const m = masteryOf(pid)
                   return (
                     <button

@@ -21,12 +21,17 @@ import os
 import re
 from collections import defaultdict
 
+from subject_config import SUBJECT_COLOR, SUBJECT_ID, SUBJECT_NAME
+
 BASE = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
+
+# 工作目录（按科目隔离，避免多科内容互相覆盖）
+WORK = os.environ.get("WORK_DIR", f"{BASE}/build")
 VOL = {"上册": "up", "中册": "mid", "下册": "down"}
 
 
 def main():
-    manifest = json.load(open(f"{BASE}/build/blocks/manifest.json", encoding="utf-8"))
+    manifest = json.load(open(f"{WORK}/blocks/manifest.json", encoding="utf-8"))
     blocks = manifest["blocks"]
     page_answers = manifest.get("pageAnswers", {})
 
@@ -39,7 +44,7 @@ def main():
     blocks.sort(key=block_key)
 
     # 教材考点列表（按全局顺序）：(volume, pdfPage, chapterId, pointNum)
-    book = json.load(open(f"{BASE}/build/textbook.json", encoding="utf-8"))
+    book = json.load(open(f"{WORK}/textbook.json", encoding="utf-8"))
     points_seq = []
     for ch in book["chapters"]:
         vol = VOL[ch["volume"]]
@@ -99,7 +104,19 @@ def main():
         for (v, start), (cid, s, e) in chapter_ranges.items():
             if v == vol and s <= page < e:
                 return cid
-        return None
+        # fallback：章首页是从「考点起始页」推的，经济法/税法的
+        # 考点来自正文热点标题，起始页可能不准 → 落到范围外。
+        # 找最近的章，别把内容丢掉。
+        best = None
+        best_d = 10 ** 9
+        for (v, start), (cid, s, e) in chapter_ranges.items():
+            if v != vol:
+                continue
+            d = min(abs(page - s), abs(page - (e - 1)))
+            if d < best_d:
+                best_d = d
+                best = cid
+        return best
 
     # 按章聚合例题答案。
     #
@@ -121,6 +138,20 @@ def main():
     # 所以归属时要用「章节内出现顺序」而不是只按编号。
     # 记录每个考点在章内的序号，供消歧。
 
+    # 章内 point 块的出现序号（按教材顺序 = 按正文顺序）
+    point_block_index = {}
+    _ch_pt_counter = defaultdict(int)
+    for b in blocks:
+        if b["kind"] != "point":
+            continue
+        parts = b["file"].split("/")[-1].replace(".png", "").split("-")
+        vol, page = parts[1], int(parts[2])
+        cid = find_chapter(vol, page)
+        if not cid:
+            continue
+        point_block_index[(cid, b["file"])] = _ch_pt_counter[cid]
+        _ch_pt_counter[cid] += 1
+
     assignment = {}
     used_keys = set()
     cur_key = None
@@ -129,38 +160,69 @@ def main():
         vol, page = parts[1], int(parts[2])
 
         if b["kind"] == "point":
-            # label 形如「考点01」，找同章同号的考点
-            m = re.search(r"考点\s*(\d+)", b["label"])
-            if not m:
-                continue
-            pnum = int(m.group(1))
             cid = find_chapter(vol, page)
             if not cid:
                 continue
-            # 同章内可能有多个「考点NN」（每节重新编号），
-            # 取该章内编号匹配且尚未用过的第一个。
-            cands = [
-                p
-                for p in chapter_points[cid]
-                if p["pointNum"] == pnum
-                and (cid, p["sectionNum"], p["pointNum"]) not in used_keys
-            ]
-            if not cands:
-                # 该编号已被前面的节用掉 → 找下一个同号候选
-                cands = [p for p in chapter_points[cid] if p["pointNum"] == pnum]
+
+            # 归属依据：**章内出现顺序**。
+            #
+            # 原来靠 label 里的「考点NN」匹配题号，但经济法/税法的正文
+            # 考点标题是「考点名 5年热点N次」—— 没有题号，正则匹配不到，
+            # 结果所有 point 块都被跳过（归并率只有 25%）。
+            #
+            # 改成按顺序：教材解析出的考点列表与切块产出的 point 块
+            # 都是按正文出现顺序生成的，第 N 个对第 N 个。
+            idx = point_block_index.get((cid, b["file"]))
+            cands = chapter_points[cid]
             if not cands:
                 continue
-            chosen = cands[0]
+            if idx is not None and idx < len(cands):
+                chosen = cands[idx]
+            elif idx is not None:
+                # 序号超出考点列表长度（解析漏识别了部分考点）。
+                # **不要丢块** —— 归到该章最后一个考点，内容还在。
+                chosen = cands[-1]
+            else:
+                # 没有序号（块不在任何章的 point 序列里）→ 按题号匹配
+                m = re.search(r"考点\s*(\d+)", b["label"])
+                if not m:
+                    continue
+                pnum = int(m.group(1))
+                cands2 = [
+                    p
+                    for p in chapter_points[cid]
+                    if p["pointNum"] == pnum
+                    and (cid, p["sectionNum"], p["pointNum"]) not in used_keys
+                ] or [p for p in chapter_points[cid] if p["pointNum"] == pnum]
+                if not cands2:
+                    continue
+                chosen = cands2[0]
             used_keys.add((cid, chosen["sectionNum"], chosen["pointNum"]))
             cur_key = (cid, chosen["sectionNum"], chosen["pointNum"])
         else:
             if cur_key is None:
-                continue
+                # fallback：这块没跟在任何考点起点后面。
+                #
+                # 财管的正文每个考点都有独立小标题，所以不会走到这里；
+                # 经济法/税法的正文是连续排版的（考点标题只在章首的
+                # 框架页出现），切出来的是页级大块 —— 硬丢掉就等于丢内容。
+                # 这里归到「该页所属章里，页码最接近的考点」。
+                cid = find_chapter(vol, page)
+                if not cid:
+                    continue
+                cands = chapter_points[cid]
+                if not cands:
+                    continue
+                best = min(
+                    cands,
+                    key=lambda p: abs(p["page"] - page),
+                )
+                cur_key = (cid, best["sectionNum"], best["pointNum"])
 
         assignment.setdefault(cur_key, []).append(b)
 
     # 写回教材内容库
-    out = f"{BASE}/build/upload"
+    out = f"{WORK}/upload"
     index = {
         "meta": book["meta"],
         "chapters": [
@@ -202,8 +264,8 @@ def main():
         "subjectiveCount": len(book["subjectives"]),
     }
 
-    os.makedirs(f"{out}/subjects/cwc/chapters", exist_ok=True)
-    json.dump(index, open(f"{out}/subjects/cwc/index.json", "w", encoding="utf-8"),
+    os.makedirs(f"{out}/subjects/{SUBJECT_ID}/chapters", exist_ok=True)
+    json.dump(index, open(f"{out}/subjects/{SUBJECT_ID}/index.json", "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
 
     # 章节详情：带上块列表
@@ -223,18 +285,30 @@ def main():
                 chap_ans = chapter_answers.get(ch["id"], {})
                 for ex in p["examples"]:
                     ex["answer"] = chap_ans.get(str(ex["no"]))
-        json.dump(detail, open(f"{out}/subjects/cwc/chapters/{ch['id']}.json", "w",
+        json.dump(detail, open(f"{out}/subjects/{SUBJECT_ID}/chapters/{ch['id']}.json", "w",
                               encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
-    # 科目清单
-    subjects = [{
-        "id": "cwc",
-        "name": "财管",
+    # 科目清单 —— **合并**而不是覆盖。
+    # 每次只处理一门课，直接写会把别的科目从清单里抹掉，
+    # 切换器就只剩一科可选。
+    subjects = []
+    subjects_path = f"{out}/subjects.json"
+    if os.path.exists(subjects_path):
+        try:
+            subjects = json.load(open(subjects_path, encoding="utf-8"))
+        except Exception:
+            subjects = []
+    entry = {
+        "id": SUBJECT_ID,
+        "name": SUBJECT_NAME,
         "volumeCount": 3,
         "chapterCount": len(book["chapters"]),
-        "color": "#2f5fd0",
-    }]
-    json.dump(subjects, open(f"{out}/subjects.json", "w", encoding="utf-8"),
+        "color": SUBJECT_COLOR,
+    }
+    subjects = [x for x in subjects if x.get("id") != SUBJECT_ID]
+    subjects.append(entry)
+    subjects.sort(key=lambda x: x.get("id", ""))
+    json.dump(subjects, open(subjects_path, "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
 
     # 块索引（前端按需取图）
@@ -247,7 +321,7 @@ def main():
     h = hashlib.sha1()
     for b in blocks:
         h.update(b["file"].encode())
-        src_file = os.path.join(BASE, "build/blocks", b["file"])
+        src_file = os.path.join(BASE, "{WORK}/blocks", b["file"])
         try:
             h.update(str(os.path.getsize(src_file)).encode())
         except OSError:
@@ -264,7 +338,7 @@ def main():
             "exampleNo": b.get("exampleNo"),
         } for b in blocks},
     }
-    json.dump(block_index, open(f"{out}/subjects/cwc/blocks.json", "w", encoding="utf-8"),
+    json.dump(block_index, open(f"{out}/subjects/{SUBJECT_ID}/blocks.json", "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
 
     assigned = sum(len(v) for v in assignment.values())
@@ -275,7 +349,7 @@ def main():
     )
     print(f"块总数 {len(blocks)}，已归并 {assigned}（{assigned/len(blocks)*100:.0f}%）")
     print(f"有块的考点: {with_blocks}/{len(points_seq)}")
-    print(f"→ {out}/subjects/cwc/")
+    print(f"→ {out}/subjects/{SUBJECT_ID}/")
 
 
 if __name__ == "__main__":
