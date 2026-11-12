@@ -444,6 +444,7 @@ a { color: var(--blue); }
 
 .today {
   max-width: 1100px;
+  padding: 22px 26px 60px;
 }
 
 .today-head {
@@ -1351,16 +1352,31 @@ a { color: var(--blue); }
 
 /* ---------- 我的笔记 ---------- */
 
-.notes { max-width: 1100px; }
+/* 我的笔记 —— 顶层页面，padding 与 .canvas 保持一致 */
+.notes {
+  max-width: 1100px;
+  padding: 22px 26px 60px;
+}
 
-.notes.is-editing { max-width: 1180px; }
+.notes.is-editing {
+  max-width: 1180px;
+}
 
 .notes-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+}
+
+/* 标题 → 说明 → 列表 的呼吸感 */
+.notes-head + .muted {
+  margin-bottom: 0;
+}
+
+.notes > .muted {
+  margin-bottom: 4px;
 }
 
 .notes-toolbar {
@@ -1374,8 +1390,8 @@ a { color: var(--blue); }
 .note-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .note-card {
