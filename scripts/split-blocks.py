@@ -18,6 +18,7 @@
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 from datetime import date
@@ -32,7 +33,12 @@ SECTION_TITLE = re.compile(r'^第[一二三四五六七八九十]+节')
 ANSWER_ROW = re.compile(r'例题\s*[-－—]\s*答案')
 # 「解析」「点拨」这类小标签也要当切分点 ——
 # 否则上一块的正文会从它们中间被切开（比如页底的解析标签被切掉半行）。
+#
+# 两类处理不同：
+#   解析   → 紧跟在例题后面，必须并入例题（用户要求：例题和解析要在一起）
+#   点拨等 → 是知识点的补充，独立成块，归到所属考点
 LABEL_TITLE = re.compile(r'^(解析|点拨|辨析|说明|注意|小结)\s*$')
+ANSWER_LABEL = re.compile(r'^解析\s*$')
 
 # 页面上下安全边界（排除页眉/页脚）
 CONTENT_TOP = 792.0     # 高于此为页眉
@@ -88,7 +94,8 @@ def find_boundaries(items):
             m = EXAMPLE_TITLE.match(t)
             marks.append({"y": y, "size": size, "kind": "example", "label": t, "num": int(m.group(1))})
         elif LABEL_TITLE.match(t):
-            marks.append({"y": y, "size": size, "kind": "label", "label": t, "num": None})
+            kind = "answer" if ANSWER_LABEL.match(t) else "label"
+            marks.append({"y": y, "size": size, "kind": kind, "label": t, "num": None})
     # 按 y 降序（从上往下）
     marks.sort(key=lambda m: -m["y"])
     # 同一 y 只留一个
@@ -100,25 +107,56 @@ def find_boundaries(items):
     return out
 
 
-def crop_page(page, W, H, y_top, y_bottom, out_pdf):
-    """把页面裁成 [y_bottom, y_top] 的独立 PDF"""
-    y_bottom = max(0, min(H - 10, y_bottom))
-    y_top = max(y_bottom + 10, min(H, y_top))
-    w = PdfWriter()
-    w.add_page(page)
-    w.pages[0].mediabox = RectangleObject((0, y_bottom, W, y_top))
-    w.pages[0].cropbox = RectangleObject((0, y_bottom, W, y_top))
-    with open(out_pdf, "wb") as f:
-        w.write(f)
-    return y_top - y_bottom
+def png_size(path):
+    """读 PNG 尺寸（只看 IHDR，不解码）"""
+    with open(path, "rb") as f:
+        head = f.read(24)
+    if len(head) < 24 or head[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    w, h = struct.unpack(">II", head[16:24])
+    return w, h
 
 
-def render(pdf_path, png_path, width=1500):
+def render_page(pdf_path, png_path, width=1500):
+    """整页渲染成 PNG"""
     subprocess.run(
         ["sips", "-s", "format", "png", "-Z", str(width), pdf_path, "--out", png_path],
         capture_output=True,
     )
-    return os.path.exists(png_path)
+    return png_size(png_path)
+
+
+def crop_png(full_png, out_png, pdf_h, y_top, y_bottom):
+    """
+    从整页 PNG 里按像素裁出 [y_bottom, y_top] 这段。
+
+    为什么不直接用 PDF cropbox：
+      sips 渲染带 cropbox 的 PDF 时，内容位置会偏移
+      （实测裁 [262.81, 431.97] 得到的是从「解析」行开始的内容，上方留白 45%）。
+      整页渲染是准的 —— 像素映射已用文字块位置验证过。
+    """
+    size = png_size(full_png)
+    if not size:
+        return False
+    pw, ph = size
+    scale = ph / pdf_h
+
+    top_px = int(round((pdf_h - y_top) * scale))
+    height_px = int(round((y_top - y_bottom) * scale))
+    if height_px < 8:
+        return False
+    # 边界收敛
+    top_px = max(0, min(ph - height_px, top_px))
+    height_px = min(height_px, ph - top_px)
+    width_px = pw
+
+    subprocess.run(
+        ["sips", "-c", str(height_px), str(width_px),
+         "--cropOffset", str(top_px), "0",
+         full_png, "--out", out_png],
+        capture_output=True,
+    )
+    return os.path.exists(out_png)
 
 
 def main():
@@ -158,6 +196,9 @@ def main():
 
             bounds = find_boundaries(items)
             stats["blocks"] += len(bounds) + (1 if bounds else 0)
+            full_png = None
+            full_page = None
+            page_px = None
 
             # 上下文逐块推进：
             #   point  块 → 归属它自己开启的考点
@@ -169,9 +210,26 @@ def main():
             # 坐标要点：visitor 给的 y 是文字「基线」，
             # 文字上边界 ≈ 基线 + 字号×0.82，下边界 ≈ 基线 − 字号×0.22。
             # 切分时必须按这个算，否则标题行会被切掉半行字。
+            # 「解析」块并入它前面的例题 —— 例题必须带解析。
+            # 做法：把 answer 边界从「切分点」降级为「附属标签」，
+            # 该例题块的下边界延伸到 answer 之后。
+            merged_bounds = []
+            skip_answer = set()
+            for i, b in enumerate(bounds):
+                if b["kind"] == "answer":
+                    # 前一个是例题 → 合并（标记跳过，独立渲染）
+                    prev = merged_bounds[-1] if merged_bounds else None
+                    if prev and prev["kind"] == "example":
+                        skip_answer.add(i)
+                        prev["merge_until"] = i
+                        continue
+                    # 没有前置例题（解析属于知识点）→ 当普通标签
+                    b = {**b, "kind": "label"}
+                merged_bounds.append(b)
+
             ctx_point = current_point
             ctx_example = current_example
-            for i, b in enumerate(bounds):
+            for i, b in enumerate(merged_bounds):
                 if b["kind"] == "point":
                     ctx_point = f"{vol}-{page_seq:04d}-{i:02d}"
                     ctx_example = None
@@ -179,8 +237,8 @@ def main():
                     ctx_example = f"{vol}-{page_seq:04d}-{i:02d}"
 
                 y_top = b["y"] + b.get("size", 12) * 0.82 + 2
-                if i + 1 < len(bounds):
-                    nb = bounds[i + 1]
+                if i + 1 < len(merged_bounds):
+                    nb = merged_bounds[i + 1]
                     y_bottom = nb["y"] + nb.get("size", 12) * 0.82 - 4
                 else:
                     y_bottom = CONTENT_BOTTOM
@@ -196,12 +254,14 @@ def main():
                 # 已存在只跳过渲染，不跳过记录。
                 already = os.path.exists(png_path)
 
-                # 临时 PDF 复用同一文件名（覆盖写），避免产生/删除大量文件
-                tmp_pdf = os.path.join(tmp_dir, "crop.pdf")
                 if not already:
                     try:
-                        crop_page(page, W, H, y_top, y_bottom, tmp_pdf)
-                        if render(tmp_pdf, png_path):
+                        # 每页只渲染一次整页，后续块都从它裁
+                        if full_png is None or full_page != page_seq:
+                            full_png = os.path.join(tmp_dir, "full.png")
+                            page_px = render_page(src, full_png)
+                            full_page = page_seq
+                        if page_px and crop_png(full_png, png_path, H, y_top, y_bottom):
                             stats["rendered"] += 1
                     except Exception as exc:
                         print(f"  裁剪失败 {out_name}：{exc}")

@@ -24,13 +24,48 @@ CONTENT_BOTTOM = 42.0
 VOL = {"上册": "up", "中册": "mid", "下册": "down"}
 
 
-def crop_page(page, W, H, y_top, y_bottom, out_pdf):
-    w = PdfWriter()
-    w.add_page(page)
-    w.pages[0].mediabox = RectangleObject((0, y_bottom, W, y_top))
-    w.pages[0].cropbox = RectangleObject((0, y_bottom, W, y_top))
-    with open(out_pdf, "wb") as f:
-        w.write(f)
+def png_size(path):
+    with open(path, "rb") as f:
+        head = f.read(24)
+    if len(head) < 24 or head[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    import struct
+    w, h = struct.unpack(">II", head[16:24])
+    return w, h
+
+
+def render_page(pdf_path, png_path, width=1500):
+    subprocess.run(
+        ["sips", "-s", "format", "png", "-Z", str(width), pdf_path, "--out", png_path],
+        capture_output=True,
+    )
+    return png_size(png_path)
+
+
+def crop_png(full_png, out_png, pdf_h, y_top, y_bottom):
+    """
+    整页渲染 + 像素裁剪。
+
+    不要用 PDF cropbox —— sips 渲染带 cropbox 的 PDF 时内容位置会偏移
+    （整页渲染是准的，像素映射已用文字块位置验证）。
+    """
+    size = png_size(full_png)
+    if not size:
+        return False
+    pw, ph = size
+    scale = ph / pdf_h
+    top_px = int(round((pdf_h - y_top) * scale))
+    height_px = int(round((y_top - y_bottom) * scale))
+    if height_px < 8:
+        return False
+    top_px = max(0, min(ph - height_px, top_px))
+    height_px = min(height_px, ph - top_px)
+    subprocess.run(
+        ["sips", "-c", str(height_px), str(pw),
+         "--cropOffset", str(top_px), "0", full_png, "--out", out_png],
+        capture_output=True,
+    )
+    return os.path.exists(out_png)
 
 
 def main():
@@ -57,7 +92,6 @@ def main():
 
     sdir = os.path.join(out_root, "财管")
     os.makedirs(sdir, exist_ok=True)
-    tmp_pdf = os.path.join(tmp_dir, "ex.pdf")
 
     made = []
     for vol, page, chid in uniq:
@@ -72,31 +106,19 @@ def main():
             continue
         try:
             r = PdfReader(src)
-            page_obj = r.pages[0]
-            W = float(page_obj.mediabox.width)
-            H = float(page_obj.mediabox.height)
-            crop_page(page_obj, W, H, CONTENT_TOP, CONTENT_BOTTOM, tmp_pdf)
-            subprocess.run(
-                ["sips", "-s", "format", "png", "-Z", "1500", tmp_pdf, "--out", dst],
-                capture_output=True,
-            )
-            if os.path.exists(dst):
+            H = float(r.pages[0].mediabox.height)
+            full = os.path.join(tmp_dir, "full.png")
+            if not render_page(src, full):
+                continue
+            if crop_png(full, dst, H, CONTENT_TOP, CONTENT_BOTTOM):
                 made.append((vol, page, chid, out_name))
         except Exception as exc:
             print(f"  失败 {out_name}: {exc}")
 
-    # 写回章节数据：exercises 带上图名
-    for ch in book["chapters"]:
-        for ex in ch.get("exercises", []):
-            vol = VOL[ch["volume"]]
-            page = ex["source"]["pdfPage"]
-            ex["block"] = f"exercise-{vol}-{page:04d}.png"
-
-    out = f"{BASE}/build/upload"
-    os.makedirs(f"{out}/subjects/cwc/chapters", exist_ok=True)
-    for ch in book["chapters"]:
-        json.dump(ch, open(f"{out}/subjects/cwc/chapters/{ch['id']}.json", "w",
-                           encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    # 注意：这里**不要**写 chapters/*.json ——
+    # 那会用原始教材数据覆盖 merge-blocks.py 写的 blocks 字段，
+    # 导致线上考点没有块列表 → 前端 point.blocks.length 崩 → 白屏。
+    # 习题块的命名规则已写进 merge-blocks.py。
 
     print(f"习题页块: {len(made)} 张（去重前 {len(pages)}）")
     print(f"→ {sdir}")

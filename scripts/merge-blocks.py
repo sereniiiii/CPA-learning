@@ -192,6 +192,10 @@ def main():
     # 章节详情：带上块列表
     for ch in book["chapters"]:
         detail = json.loads(json.dumps(ch))
+        # 章末习题页的块（命名规则与 split-exercise-pages.py 一致）
+        for ex in detail.get("exercises", []):
+            vol = VOL[ch["volume"]]
+            ex["block"] = f"exercise-{vol}-{ex['source']['pdfPage']:04d}.png"
         for sec in detail["sections"]:
             for p in sec["points"]:
                 p["blocks"] = [

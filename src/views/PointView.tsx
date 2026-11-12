@@ -238,16 +238,16 @@ export function PointView({
       )}
 
       {/* 教材内容 —— 按知识点切分的原书图，不是整页 */}
-      {point.blocks.length > 0 && (
+      {(point.blocks ?? []).length > 0 && (
         <section className="blocks-section">
           <div className="section-head-row">
-            <h2 className="section-title">教材内容（{point.blocks.length} 块）</h2>
+            <h2 className="section-title">教材内容（{(point.blocks ?? []).length} 块）</h2>
             <span className="muted small">
               {point.source.volume} · 印刷页 {point.source.printPage}
             </span>
           </div>
           <BlockGallery
-            blocks={point.blocks}
+            blocks={point.blocks ?? []}
             subjectId={subjectId}
             index={blockIndex}
             loading={blocksLoading}
@@ -278,7 +278,7 @@ export function PointView({
       {/* 教材例题 —— 用切好的例题块，不显示整页 */}
       {exampleBlocks.length > 0 && (
         <section className="examples">
-          <h2 className="section-title">教材例题（{point.examples.length}）</h2>
+          <h2 className="section-title">教材例题（{(point.examples ?? []).length}）</h2>
           <p className="muted small">
             随讲随练的即时验证，挂在所属考点下
           </p>
@@ -370,16 +370,16 @@ export function PointView({
       </section>
 
       {/* 同步习题 —— 章末综合，独立成章，不拆进各考点（文档 3.4） */}
-      {chapter.exercises.length > 0 && (
+      {(chapter.exercises ?? []).length > 0 && (
         <section className="examples">
-          <h2 className="section-title">同步习题（{chapter.exercises.length} 页）</h2>
+          <h2 className="section-title">同步习题（{(chapter.exercises ?? []).length} 页）</h2>
           <p className="muted small">
             章末跨考点综合检验 —— 左边看题，右边写解答
           </p>
           <ExerciseWorkbench
             subjectId={subjectId}
             chapterId={chapter.id}
-            pages={chapter.exercises}
+            pages={chapter.exercises ?? []}
             userData={userData}
             onUserDataChange={onUserDataChange}
           />
