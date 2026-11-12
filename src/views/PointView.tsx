@@ -12,10 +12,11 @@ import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
 import { OverlayEditor, QuestionEditor } from './EditPanel'
-import { PageBrowser } from './PageBrowser'
 import { ExerciseWorkbench } from './ExerciseWorkbench'
+import { AnnotationComposer } from './AnnotationComposer'
 
 interface Props {
+  subjectId: string
   chapterId: string
   pointNum: number
   state: LearningState
@@ -33,6 +34,7 @@ interface Props {
  * 关键：默认先只看题干，「显示材料」按钮才展开正文 —— 强制「合上材料自测」。
  */
 export function PointView({
+  subjectId,
   chapterId,
   pointNum,
   state,
@@ -46,6 +48,7 @@ export function PointView({
   const [cause, setCause] = useState<ErrorCause | null>(null)
   const [selfRated, setSelfRated] = useState<'none' | 'partial' | 'correct'>('none')
   const [addingQuestion, setAddingQuestion] = useState(false)
+  const [annotating, setAnnotating] = useState(false)
   const [err, setErr] = useState('')
 
   useEffect(() => {
@@ -167,6 +170,14 @@ export function PointView({
           {point.hot != null && (
             <span className="muted small">高频但不代表必考，可当筛选器不能当排除器</span>
           )}
+          <div style={{ flex: 1 }} />
+          <button
+            className="material-btn"
+            onClick={() => setAnnotating(true)}
+            title="给这个考点写批注，会归到对应章节下"
+          >
+            写批注
+          </button>
         </div>
       </header>
 
@@ -178,13 +189,39 @@ export function PointView({
         onChange={saveOverlay}
       />
 
-      {/* 原书页 —— 教材内容一律以截图呈现 */}
-      <PageBrowser
-        volume={point.source.volume}
-        startPage={point.source.pdfPage}
-        title="教材原书"
-        subtitle={`${point.source.volume} · 印刷页 ${point.source.printPage}`}
-      />
+      {/* 写批注 */}
+      {annotating && (
+        <AnnotationComposer
+          subjectId={subjectId}
+          chapterId={chapter.id}
+          chapterTitle={chapter.title}
+          pointId={pid}
+          pointTitle={displayTitle}
+          source={point.source}
+          onSave={(a) => {
+            onUserDataChange({
+              ...userData,
+              annotations: { ...userData.annotations, [a.id]: a },
+              updatedAt: new Date().toISOString(),
+            })
+            setAnnotating(false)
+          }}
+          onCancel={() => setAnnotating(false)}
+        />
+      )}
+
+      {/* 教材内容 —— 按知识点切分的原书图，不是整页 */}
+      {point.blocks.length > 0 && (
+        <section className="blocks-section">
+          <div className="section-head-row">
+            <h2 className="section-title">教材内容（{point.blocks.length} 块）</h2>
+            <span className="muted small">
+              {point.source.volume} · 印刷页 {point.source.printPage}
+            </span>
+          </div>
+          <BlockGallery blocks={point.blocks} subjectId={subjectId} />
+        </section>
+      )}
 
       {/* 我的补充笔记 */}
       {(overlay?.notes || overlay?.answer || overlay?.blocker) && (
@@ -355,6 +392,90 @@ export function PointView({
     </div>
   )
 }
+
+/**
+ * 知识块画廊。
+ *
+ * 每块是原书按知识点/例题/点拨切分后的图，不是整页 —— 整页等于让用户自己翻书。
+ */
+function BlockGallery({
+  blocks,
+  subjectId,
+}: {
+  blocks: string[]
+  subjectId: string
+}) {
+  const [index, setIndex] = useState<Record<string, BlockMeta>>({})
+  const [zoomed, setZoomed] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    learningApi
+      .getBlockIndex(subjectId)
+      .then((map) => {
+        const out: Record<string, BlockMeta> = {}
+        for (const [name, meta] of Object.entries(map)) {
+          out[name] = meta
+        }
+        setIndex(out)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [subjectId])
+
+  const KIND_LABEL: Record<string, string> = {
+    point: '知识点',
+    example: '例题',
+    label: '点拨 / 辨析',
+  }
+
+  return (
+    <>
+      <div className="block-grid">
+        {loading && <div className="muted small">载入中…</div>}
+        {blocks.map((name, i) => {
+          const meta = index[name]
+          const kind = meta?.kind ?? 'point'
+          return (
+            <figure key={name} className="block-card">
+              <div className="block-card-head">
+                <span className={`block-kind is-${kind}`}>{KIND_LABEL[kind] ?? kind}</span>
+                <span className="muted small">
+                  {meta ? `${meta.volume} · PDF 第${meta.pdfPage}页` : ''}
+                </span>
+                <div style={{ flex: 1 }} />
+                <span className="muted small">#{i + 1}</span>
+              </div>
+              <img
+                src={learningApi.shotUrl(name, subjectId)}
+                alt={meta?.label ?? '教材知识块'}
+                loading="lazy"
+                onClick={() => setZoomed(name)}
+              />
+              {meta?.label && <figcaption>{meta.label.slice(0, 60)}</figcaption>}
+            </figure>
+          )
+        })}
+      </div>
+
+      {zoomed && (
+        <div className="lightbox" onClick={() => setZoomed(null)}>
+          <img src={learningApi.shotUrl(zoomed, subjectId)} alt="" />
+        </div>
+      )}
+    </>
+  )
+}
+
+interface BlockMeta {
+  kind: 'point' | 'example' | 'label'
+  volume: string
+  pdfPage: number
+  label: string
+  exampleNo: number | null
+}
+
+
 
 /** 把同一页上的例题归为一组，避免重复显示同一张截图 */
 function groupExamplesByPage(examples: Example[]) {

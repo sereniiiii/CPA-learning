@@ -14,7 +14,7 @@ import {
   savePage,
 } from './api'
 import { buildTodayQueue, currentMastery, isDue, todayStr } from './learning'
-import { PageMeta, TextbookIndex } from './types'
+import { PageMeta, Subject, SubjectLibrary } from './types'
 import { useCloudSync } from './useCloudSync'
 import { LibraryView } from './views/LibraryView'
 import { TodayView } from './views/TodayView'
@@ -22,17 +22,20 @@ import { PointView } from './views/PointView'
 import { SubjectiveView } from './views/SubjectiveView'
 import { ArchiveView, ReviewView, WrongBookView } from './views/ReviewView'
 import { MyNotes } from './views/MyNotes'
+import { AnnotationPanel } from './views/AnnotationPanel'
+import { SubjectSwitcher } from './views/SubjectSwitcher'
 
-type Tab = 'today' | 'library' | 'subjective' | 'review' | 'wrong' | 'archive' | 'notes'
+type Tab = 'today' | 'library' | 'subjective' | 'anno' | 'review' | 'wrong' | 'archive' | 'notes'
 
-const TABS: Array<{ id: Tab; label: string; short: string }> = [
-  { id: 'today', label: '今日', short: '今' },
-  { id: 'library', label: '教材库', short: '库' },
-  { id: 'subjective', label: '主观题', short: '主' },
-  { id: 'review', label: '复习', short: '复' },
-  { id: 'wrong', label: '错题本', short: '错' },
-  { id: 'archive', label: '归档', short: '归' },
-  { id: 'notes', label: '我的笔记', short: '记' },
+const TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'today', label: '今日' },
+  { id: 'library', label: '教材库' },
+  { id: 'subjective', label: '主观题' },
+  { id: 'anno', label: '批注' },
+  { id: 'review', label: '复习' },
+  { id: 'wrong', label: '错题本' },
+  { id: 'archive', label: '归档' },
+  { id: 'notes', label: '我的笔记' },
 ]
 
 export default function App() {
@@ -42,7 +45,9 @@ export default function App() {
   const [loggingIn, setLoggingIn] = useState(false)
 
   const [tab, setTab] = useState<Tab>('today')
-  const [index, setIndex] = useState<TextbookIndex | null>(null)
+  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [subjectId, setSubjectId] = useState('cwc')
+  const [library, setLibrary] = useState<SubjectLibrary | null>(null)
   const [openPoint, setOpenPoint] = useState<{ chapterId: string; pointNum: number } | null>(
     null,
   )
@@ -65,15 +70,35 @@ export default function App() {
 
   useEffect(() => {
     if (!authed) return
-    learningApi.getIndex().then(setIndex).catch(() => {})
+    learningApi
+      .getSubjects()
+      .then((list) => {
+        setSubjects(list)
+        if (list.length > 0 && !list.some((s) => s.id === subjectId)) {
+          setSubjectId(list[0].id)
+        }
+      })
+      .catch(() => {})
     listPages().then(setMyNotes).catch(() => {})
   }, [authed])
 
+  // 切科目时重载内容库
+  useEffect(() => {
+    if (!authed) return
+    setLibrary(null)
+    setOpenPoint(null)
+    setOpenChapter(null)
+    learningApi
+      .getIndex(subjectId)
+      .then(setLibrary)
+      .catch(() => {})
+  }, [authed, subjectId])
+
   /* ---------- 队列 ---------- */
   const queue = useMemo(() => {
-    if (!index) return []
-    return buildTodayQueue(learning, index.chapters, todayStr())
-  }, [index, learning])
+    if (!library) return []
+    return buildTodayQueue(learning, library.chapters, todayStr())
+  }, [library, learning])
 
   const masteryOf = useCallback(
     (pid: string) => currentMastery(learning, pid, todayStr()),
@@ -89,7 +114,7 @@ export default function App() {
       await savePage(activeNote.id, noteTitle, noteContent)
       setDirty(false)
     } catch {
-      /* 静默失败，下一次输入会重试 */
+      /* 静默失败 */
     }
   }
 
@@ -128,12 +153,7 @@ export default function App() {
   const doExport = async () => {
     try {
       const bundle = await exportAll()
-      // 把学习进度与用户数据一并带出去
-      const full = {
-        ...bundle,
-        learning,
-        userData,
-      }
+      const full = { ...bundle, learning, userData }
       const blob = new Blob([JSON.stringify(full, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -194,7 +214,7 @@ export default function App() {
       <div className="login-screen">
         <form className="login-card" onSubmit={handleLogin}>
           <h1 className="login-title">CPA Learning</h1>
-          <p className="login-sub">2026 注会 · 财务成本管理</p>
+          <p className="login-sub">2026 注会 · 教材学习工作台</p>
           <input
             className="login-input"
             type="password"
@@ -212,6 +232,11 @@ export default function App() {
     )
   }
 
+  const currentSubject = subjects.find((s) => s.id === subjectId)
+  const annoCount = Object.values(userData.annotations).filter(
+    (a) => a.subjectId === subjectId,
+  ).length
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -221,6 +246,15 @@ export default function App() {
             ⎋
           </button>
         </div>
+
+        <SubjectSwitcher
+          subjects={subjects}
+          current={subjectId}
+          onChange={(id) => {
+            setSubjectId(id)
+            setTab('today')
+          }}
+        />
 
         <nav className="tabs">
           {TABS.map((t) => (
@@ -240,18 +274,9 @@ export default function App() {
               {t.id === 'wrong' && Object.keys(learning.wrongBook).length > 0 && (
                 <span className="tab-badge">{Object.keys(learning.wrongBook).length}</span>
               )}
-              {t.id === 'subjective' &&
-                Object.keys(userData.subjectiveNotes).filter(
-                  (k) => userData.subjectiveNotes[k].rating !== 'none',
-                ).length > 0 && (
-                  <span className="tab-badge">
-                    {
-                      Object.keys(userData.subjectiveNotes).filter(
-                        (k) => userData.subjectiveNotes[k].rating !== 'none',
-                      ).length
-                    }
-                  </span>
-                )}
+              {t.id === 'anno' && annoCount > 0 && (
+                <span className="tab-badge">{annoCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -291,6 +316,7 @@ export default function App() {
         {openPoint ? (
           <div className="canvas">
             <PointView
+              subjectId={subjectId}
               chapterId={openPoint.chapterId}
               pointNum={openPoint.pointNum}
               state={learning}
@@ -304,7 +330,8 @@ export default function App() {
         ) : tab === 'library' ? (
           <div className="split">
             <LibraryView
-              index={index}
+              index={library}
+              subjectId={subjectId}
               activePoint={openPoint}
               openChapter={openChapter}
               onOpenChapter={(id) => setOpenChapter(openChapter === id ? null : id)}
@@ -316,13 +343,28 @@ export default function App() {
           </div>
         ) : tab === 'subjective' ? (
           <div className="split">
-            <SubjectiveView userData={userData} onUserDataChange={setUserData} />
+            <SubjectiveView
+              subjectId={subjectId}
+              userData={userData}
+              onUserDataChange={setUserData}
+            />
           </div>
+        ) : tab === 'anno' ? (
+          <AnnotationPanel
+            subjectId={subjectId}
+            subject={
+              currentSubject ?? { id: subjectId, name: subjectId, volumeCount: 0, chapterCount: 0, color: '#2f5fd0' }
+            }
+            chapters={library?.chapters ?? []}
+            userData={userData}
+            onUserDataChange={setUserData}
+            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+          />
         ) : tab === 'today' ? (
           <div className="canvas">
             <TodayView
               queue={queue}
-              index={index}
+              index={library}
               onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
               onStart={() => {
                 const first = queue[0]
@@ -331,11 +373,20 @@ export default function App() {
             />
           </div>
         ) : tab === 'review' ? (
-          <ReviewView state={learning} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
+          <ReviewView
+            state={learning}
+            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+          />
         ) : tab === 'wrong' ? (
-          <WrongBookView state={learning} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
+          <WrongBookView
+            state={learning}
+            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+          />
         ) : tab === 'archive' ? (
-          <ArchiveView state={learning} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
+          <ArchiveView
+            state={learning}
+            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+          />
         ) : (
           <MyNotes
             notes={myNotes}

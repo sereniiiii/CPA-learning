@@ -19,8 +19,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       const kind = typeof req.query.kind === 'string' ? req.query.kind : 'index'
 
+      // 科目：内容库按科目分目录存放
+      const subject = typeof req.query.subject === 'string' ? req.query.subject : 'cwc'
+      if (!/^[a-z]{2,4}$/.test(subject)) {
+        return res.status(400).json({ error: '非法的科目 ID' })
+      }
+
+      if (kind === 'subjects') {
+        // 科目清单
+        const text = await readFile('data/subjects.json')
+        if (!text) return res.status(404).json({ error: '科目清单未就绪' })
+        res.setHeader('Cache-Control', 'private, max-age=600')
+        return res.status(200).send(text)
+      }
+
       if (kind === 'index') {
-        const text = await readFile('data/index.json')
+        const text = await readFile(`data/subjects/${subject}/index.json`)
         if (!text) return res.status(404).json({ error: '内容库未就绪' })
         res.setHeader('Cache-Control', 'private, max-age=600')
         return res.status(200).send(text)
@@ -29,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (kind === 'chapter') {
         const id = typeof req.query.id === 'string' ? req.query.id : ''
         if (!/^ch\d{2}$/.test(id)) return res.status(400).json({ error: '非法的章节 ID' })
-        const text = await readFile(`data/chapters/${id}.json`)
+        const text = await readFile(`data/subjects/${subject}/chapters/${id}.json`)
         if (!text) return res.status(404).json({ error: '章节不存在' })
         res.setHeader('Cache-Control', 'private, max-age=600')
         return res.status(200).send(text)
@@ -43,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (kind === 'subjectiveIndex') {
-        const text = await readFile('data/subjectives/index.json')
+        const text = await readFile(`data/subjects/${subject}/subjectives/index.json`)
         if (!text) return res.status(404).json({ error: '主观题集训未就绪' })
         res.setHeader('Cache-Control', 'private, max-age=600')
         return res.status(200).send(text)
@@ -52,18 +66,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (kind === 'subjectiveTopic') {
         const id = typeof req.query.id === 'string' ? req.query.id : ''
         if (!/^topic\d{2}$/.test(id)) return res.status(400).json({ error: '非法的专题 ID' })
-        const text = await readFile(`data/subjectives/${id}.json`)
+        const text = await readFile(`data/subjects/${subject}/subjectives/${id}.json`)
         if (!text) return res.status(404).json({ error: '专题不存在' })
+        res.setHeader('Cache-Control', 'private, max-age=600')
+        return res.status(200).send(text)
+      }
+
+      if (kind === 'blockIndex') {
+        const text = await readFile(`data/subjects/${subject}/blocks.json`)
+        if (!text) return res.status(404).json({ error: '知识块索引未就绪' })
         res.setHeader('Cache-Control', 'private, max-age=600')
         return res.status(200).send(text)
       }
 
       if (kind === 'shot') {
         const name = typeof req.query.name === 'string' ? req.query.name : ''
-        if (!/^[a-z]{2,4}-\d{4}\.jpg$/.test(name)) {
-          return res.status(400).json({ error: '非法的截图名' })
+        if (!/^[a-z0-9_\-\u4e00-\u9fff]{1,80}\.png$/.test(name)) {
+          return res.status(400).json({ error: '非法的图片名' })
         }
-        const data = await readBinary(`data/shots/${name}`)
+        const data = await readBinary(`data/subjects/${subject}/blocks/${name}`)
         if (!data) return res.status(404).json({ error: '截图不存在' })
         res.setHeader('Content-Type', 'image/jpeg')
         res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')

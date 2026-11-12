@@ -30,9 +30,11 @@ interface TopicDetail {
  * 「先写再对」这个自评环节本身是有效的，直接看答案等于没练。
  */
 export function SubjectiveView({
+  subjectId,
   userData,
   onUserDataChange,
 }: {
+  subjectId: string
   userData: UserData
   onUserDataChange: (d: UserData) => void
 }) {
@@ -44,19 +46,19 @@ export function SubjectiveView({
 
   useEffect(() => {
     learningApi
-      .getSubjectiveIndex()
+      .getSubjectiveIndex(subjectId)
       .then((d) => setTopics(d.topics))
       .catch((e) => setErr(String(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [subjectId])
 
   useEffect(() => {
     if (!openTopic) {
       setDetail(null)
       return
     }
-    learningApi.getSubjectiveTopic(openTopic).then(setDetail).catch(() => {})
-  }, [openTopic])
+    learningApi.getSubjectiveTopic(openTopic, subjectId).then(setDetail).catch(() => {})
+  }, [openTopic, subjectId])
 
   const saveNote = (topic: Topic, content: string, rating: 'none' | 'partial' | 'correct') => {
     onUserDataChange({
@@ -149,6 +151,7 @@ export function SubjectiveView({
 
         {openTopic && detail && (
           <SubjectiveDetail
+            subjectId={subjectId}
             topic={detail}
             note={userData.subjectiveNotes[openTopic]}
             onSave={(content, rating) => {
@@ -164,11 +167,13 @@ export function SubjectiveView({
 }
 
 function SubjectiveDetail({
+  subjectId,
   topic,
   note,
   onSave,
   onBack,
 }: {
+  subjectId: string
   topic: TopicDetail
   note: UserData['subjectiveNotes'][string] | undefined
   onSave: (content: string, rating: 'none' | 'partial' | 'correct') => void
@@ -230,7 +235,7 @@ function SubjectiveDetail({
           </button>
         </div>
         <div className="shot-panel-body">
-          <ShotImage page={current?.pdfPage ?? topic.source.pdfPage} />
+          <ShotImage page={current?.pdfPage ?? topic.source.pdfPage} subjectId={subjectId} />
         </div>
       </div>
 
@@ -288,7 +293,7 @@ function SubjectiveDetail({
   )
 }
 
-function ShotImage({ page }: { page: number }) {
+function ShotImage({ page, subjectId }: { page: number; subjectId: string }) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [zoomed, setZoomed] = useState(false)
@@ -308,7 +313,7 @@ function ShotImage({ page }: { page: number }) {
       ) : loaded ? (
         <figure className="shot">
           <img
-            src={learningApi.shotUrl(name)}
+            src={learningApi.shotUrl(name, subjectId)}
             alt={`下册第 ${page} 页`}
             onClick={() => setZoomed(true)}
             onError={() => setFailed(true)}
@@ -322,7 +327,7 @@ function ShotImage({ page }: { page: number }) {
       )}
       {zoomed && (
         <div className="lightbox" onClick={() => setZoomed(false)}>
-          <img src={learningApi.shotUrl(name)} alt="" />
+          <img src={learningApi.shotUrl(name, subjectId)} alt="" />
         </div>
       )}
     </>

@@ -1,5 +1,35 @@
 /** 教材内容库的数据类型（对应 api/_lib 里生成的 JSON 结构） */
 
+/* ---------- 科目 ---------- */
+
+/** 科目定义 —— 多科目共用一套内容库与批注体系 */
+export interface Subject {
+  /** 科目 ID（用作存储与路由键） */
+  id: string
+  /** 科目名 */
+  name: string
+  /** 册数 */
+  volumeCount: number
+  /** 章节总数 */
+  chapterCount: number
+  /** 封面色（用于导航标识） */
+  color: string
+}
+
+/** 教材内容库（按科目） */
+export interface SubjectLibrary {
+  subjectId: string
+  meta: {
+    title: string
+    source: string
+    version: string
+    generatedAt: string
+    chapterCount: number
+  }
+  chapters: ChapterMeta[]
+  subjectiveCount?: number
+}
+
 export interface PageMeta {
   id: string
   title: string
@@ -15,6 +45,8 @@ export interface PointMeta {
   hot: number | null
   exampleCount: number
   render: 'screenshot'
+  /** 知识块数量 */
+  blockCount: number
 }
 
 export interface SectionMeta {
@@ -72,6 +104,8 @@ export interface Point {
   title: string
   difficulty: string | null
   hot: number | null
+  /** 该考点对应的原书知识块（图片文件名） */
+  blocks: string[]
   examples: Example[]
   source: SourceRef
   status: '已核' | '待核' | '草稿'
@@ -229,10 +263,44 @@ export interface LearningState {
   updatedAt: string
 }
 
+/**
+ * 批注。
+ *
+ * 挂在教材的具体位置：某个考点、某道例题、某个章节。
+ * 汇总显示时按 科目 → 章 → 节 → 考点 归类，不按时间排序。
+ */
+export interface Annotation {
+  id: string
+  /** 归属科目 */
+  subjectId: string
+  /** 归属章节（章级批注可为空） */
+  chapterId: string | null
+  /** 归属考点（章级批注可为空） */
+  pointId: string | null
+  /** 归属例题（可为空） */
+  exampleId: string | null
+  /** 批注正文（富文本 JSON） */
+  content: string
+  /** 一句话标题（列表里显示） */
+  title: string
+  /** 标签 */
+  tags: string[]
+  /** 来源页码（点击可跳到原书） */
+  source: {
+    volume: string
+    pdfPage: number
+    printPage: number
+  } | null
+  createdAt: string
+  updatedAt: string
+}
+
 /** 用户数据（与学习状态一起同步到云端） */
 export interface UserData {
   /** 教材内容覆盖层：key = 考点ID */
   overlays: Record<string, UserOverlay>
+  /** 批注：key = 批注 ID */
+  annotations: Record<string, Annotation>
   /** 用户自加题目 */
   questions: UserQuestion[]
   /** 主观题训练记录 */
@@ -258,6 +326,7 @@ export const EMPTY_LEARNING: LearningState = {
 
 export const EMPTY_USER_DATA: UserData = {
   overlays: {},
+  annotations: {},
   questions: [],
   subjectiveNotes: {},
   subjectiveTopics: [],

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { QueueItem } from '../learning'
-import { TextbookIndex } from '../types'
+import { SubjectLibrary } from '../types'
 
 const REASON_LABEL: Record<QueueItem['reason'], string> = {
   due: '到期重测',
@@ -15,7 +15,7 @@ export function TodayView({
   onStart,
 }: {
   queue: QueueItem[]
-  index: TextbookIndex | null
+  index: SubjectLibrary | null
   onOpenPoint: (chapterId: string, pointNum: number) => void
   onStart: () => void
 }) {

@@ -98,10 +98,18 @@ export async function uploadImage(dataUrl: string): Promise<string> {
 /* ---------- 教材内容库 ---------- */
 
 export const learningApi = {
-  getIndex: () => request<import('./types').TextbookIndex>('/api/textbook?kind=index'),
+  getSubjects: () =>
+    request<import('./types').Subject[]>('/api/textbook?kind=subjects'),
 
-  getChapter: (id: string) =>
-    request<import('./types').Chapter>(`/api/textbook?kind=chapter&id=${encodeURIComponent(id)}`),
+  getIndex: (subject = 'cwc') =>
+    request<import('./types').SubjectLibrary>(
+      `/api/textbook?kind=index&subject=${encodeURIComponent(subject)}`,
+    ),
+
+  getChapter: (id: string, subject = 'cwc') =>
+    request<import('./types').Chapter>(
+      `/api/textbook?kind=chapter&id=${encodeURIComponent(id)}&subject=${encodeURIComponent(subject)}`,
+    ),
 
   getSubjectives: () =>
     request<{
@@ -111,7 +119,7 @@ export const learningApi = {
       }>
     }>('/api/textbook?kind=subjectives'),
 
-  getSubjectiveIndex: () =>
+  getSubjectiveIndex: (subject = 'cwc') =>
     request<{
       topics: Array<{
         id: string
@@ -120,18 +128,31 @@ export const learningApi = {
         source: { volume: string; pdfPage: number; printPage: number }
         pageCount: number
       }>
-    }>('/api/textbook?kind=subjectiveIndex'),
+    }>(`/api/textbook?kind=subjectiveIndex&subject=${encodeURIComponent(subject)}`),
 
-  getSubjectiveTopic: (id: string) =>
+  getSubjectiveTopic: (id: string, subject = 'cwc') =>
     request<{
       id: string
       num: number
       title: string
       source: { volume: string; pdfPage: number; printPage: number }
       pages: Array<{ pdfPage: number; text: string }>
-    }>(`/api/textbook?kind=subjectiveTopic&id=${encodeURIComponent(id)}`),
+    }>(
+      `/api/textbook?kind=subjectiveTopic&id=${encodeURIComponent(id)}&subject=${encodeURIComponent(subject)}`,
+    ),
 
-  shotUrl: (name: string) => `/api/textbook?kind=shot&name=${encodeURIComponent(name)}`,
+  /** 知识块索引：文件名 → 元数据（类型、来源页、标签） */
+  getBlockIndex: (subject = 'cwc') =>
+    request<Record<string, {
+      kind: 'point' | 'example' | 'label'
+      volume: string
+      pdfPage: number
+      label: string
+      exampleNo: number | null
+    }>>(`/api/textbook?kind=blockIndex&subject=${encodeURIComponent(subject)}`),
+
+  shotUrl: (name: string, subject = 'cwc') =>
+    `/api/textbook?kind=shot&name=${encodeURIComponent(name)}&subject=${encodeURIComponent(subject)}`,
 }
 
 /* ---------- 导入导出 ---------- */

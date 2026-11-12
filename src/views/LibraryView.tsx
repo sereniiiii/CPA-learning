@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ChapterMeta, TextbookIndex } from '../types'
+import { ChapterMeta, SubjectLibrary } from '../types'
 
 /**
  * 教材库视图：左侧目录树 + 右侧章节卡片。
@@ -7,6 +7,7 @@ import { ChapterMeta, TextbookIndex } from '../types'
  */
 export function LibraryView({
   index,
+  subjectId: _subjectId,
   activePoint,
   onOpenPoint,
   onOpenChapter,
@@ -15,7 +16,8 @@ export function LibraryView({
   isDue,
   isWrong,
 }: {
-  index: TextbookIndex | null
+  index: SubjectLibrary | null
+  subjectId: string
   activePoint: { chapterId: string; pointNum: number } | null
   onOpenPoint: (chapterId: string, pointNum: number) => void
   onOpenChapter: (chapterId: string) => void

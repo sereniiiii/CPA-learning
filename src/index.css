@@ -1722,3 +1722,249 @@ a { color: var(--blue); }
   display: grid;
   place-items: center;
 }
+
+/* ============================================================
+   科目切换器
+   ============================================================ */
+
+.subject-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.subject-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  color: var(--nav-text-2);
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.13s, color 0.13s;
+}
+
+.subject-tab:hover {
+  background: var(--nav-bg-2);
+  color: var(--nav-text);
+}
+
+.subject-tab.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--nav-text);
+  font-weight: 600;
+}
+
+.subject-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.subject-name { flex: 1; }
+
+.subject-count {
+  font-size: 10.5px;
+  color: var(--nav-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.subject-tab.is-active .subject-count { color: var(--nav-text); }
+
+/* ============================================================
+   知识块画廊 —— 按知识点/例题/点拨分门别类
+   ============================================================ */
+
+.blocks-section {
+  margin-bottom: 18px;
+}
+
+.block-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.block-card {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.block-card:hover {
+  border-color: var(--line-2);
+  box-shadow: var(--shadow);
+}
+
+.block-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.block-kind {
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.block-kind.is-point {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.block-kind.is-example {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.block-kind.is-label {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.block-card img {
+  display: block;
+  width: 100%;
+  background: #fff;
+  cursor: zoom-in;
+}
+
+.block-card figcaption {
+  padding: 7px 12px;
+  color: var(--ink-3);
+  font-size: 11px;
+  line-height: 1.5;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   批注
+   ============================================================ */
+
+.chapter-filter {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.anno-chapter {
+  margin-bottom: 22px;
+}
+
+.anno-chapter-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.anno-point {
+  margin-bottom: 14px;
+}
+
+.anno-point-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+}
+
+.anno-card {
+  padding: 11px 13px;
+  margin-bottom: 7px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color 0.14s;
+}
+
+.anno-card:hover { border-color: var(--line-2); }
+
+.anno-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.anno-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.anno-body {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--ink-2);
+}
+
+.anno-line {
+  margin: 0 0 3px;
+}
+
+.anno-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+
+.anno-jump {
+  color: var(--blue);
+  font-size: 11.5px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  transition: background 0.13s;
+}
+
+.anno-jump:hover { background: var(--blue-soft); }
+
+.anno-editor {
+  margin-bottom: 16px;
+  padding: 15px 17px;
+  background: var(--panel);
+  border: 1px solid var(--blue);
+  border-radius: var(--radius-lg);
+}
+
+.anno-editor-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.anno-editor-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
