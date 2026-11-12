@@ -36,7 +36,7 @@ export function MyNotes({
     return (
       <div className="notes">
         <header className="notes-head">
-          <h1 className="view-title">我的笔记</h1>
+          <h1 className="page-title">我的笔记</h1>
           <button className="start-btn" onClick={onCreate}>
             新建笔记
           </button>

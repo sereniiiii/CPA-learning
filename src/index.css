@@ -455,6 +455,15 @@ a { color: var(--blue); }
   margin-bottom: 8px;
 }
 
+/* 页面主标题 —— 今日 / 我的笔记 共用，层级一致 */
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
 .today-title {
   margin: 0;
   font-size: 24px;
@@ -1404,7 +1413,15 @@ a { color: var(--blue); }
   transition: border-color 0.14s, box-shadow 0.14s;
 }
 
-.note-card:hover { border-color: var(--line-2); box-shadow: var(--shadow); }
+.note-card:hover {
+  border-color: var(--line-2);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.note-card {
+  transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
+}
 
 .note-card-main {
   flex: 1;

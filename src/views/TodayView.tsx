@@ -65,7 +65,7 @@ export function TodayView({
   return (
     <div className="today">
       <div className="today-head">
-        <h1 className="today-title">今日</h1>
+        <h1 className="page-title">今日</h1>
         <div className="today-counts">
           <span className="count-chip is-due">{counts.due} 到期</span>
           <span className="count-chip is-wrong">{counts.wrong} 错题</span>
