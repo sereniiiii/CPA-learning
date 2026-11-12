@@ -86,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const data = await readBinary(`data/subjects/${subject}/blocks/${name}`)
         if (!data) return res.status(404).json({ error: '截图不存在' })
-        res.setHeader('Content-Type', 'image/jpeg')
+        res.setHeader('Content-Type', 'image/png')
         res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
         return res.status(200).send(data)
       }
