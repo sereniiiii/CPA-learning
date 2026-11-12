@@ -367,7 +367,10 @@ export default function App() {
             <TodayView
               queue={queue}
               index={library}
-              onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+              onOpenChapter={(id) => {
+                setTab('library')
+                setOpenChapter(id)
+              }}
               onStart={() => {
                 const first = queue[0]
                 if (first) setOpenPoint({ chapterId: first.chapterId, pointNum: first.pointNum })

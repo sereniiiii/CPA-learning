@@ -232,7 +232,9 @@ def process_chapter(ch, a_pages, out_dir, full, find_chapter):
 
         items = []
         for ii, (y, x, no, text) in enumerate(gitems):
-            y_bottom = gitems[ii + 1][0] - 4 if ii + 1 < len(gitems) else CONTENT_BOTTOM
+            y_bottom = (
+                gitems[ii + 1][0] - 4 - 6 if ii + 1 < len(gitems) else CONTENT_BOTTOM
+            )
             block = cut_block(v2, page, gi, ii, y, y_bottom, "ex", out_dir, full)
             if not block:
                 continue

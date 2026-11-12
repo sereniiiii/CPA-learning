@@ -2,21 +2,15 @@ import { useMemo } from 'react'
 import { QueueItem } from '../learning'
 import { SubjectLibrary } from '../types'
 
-const REASON_LABEL: Record<QueueItem['reason'], string> = {
-  due: '到期重测',
-  wrong: '错题未解决',
-  new: '新内容',
-}
-
 export function TodayView({
   queue,
   index,
-  onOpenPoint,
+  onOpenChapter,
   onStart,
 }: {
   queue: QueueItem[]
   index: SubjectLibrary | null
-  onOpenPoint: (chapterId: string, pointNum: number) => void
+  onOpenChapter: (chapterId: string) => void
   onStart: () => void
 }) {
   const counts = useMemo(() => {
@@ -25,27 +19,37 @@ export function TodayView({
     return c
   }, [queue])
 
-  // 按章分组展示（队列本身交错，这里只是视觉归类）
-  const byChapter = useMemo(() => {
-    const map = new Map<number, { title: string; items: QueueItem[] }>()
+  // 全书概览（按章一行，不重复教材库的完整目录）
+  const chapters = useMemo(() => {
+    if (!index) return []
+    const queueCount = new Map<string, number>()
     for (const q of queue) {
-      if (!map.has(q.chapterNum)) {
-        map.set(q.chapterNum, { title: q.chapterTitle, items: [] })
-      }
-      map.get(q.chapterNum)!.items.push(q)
+      queueCount.set(q.chapterId, (queueCount.get(q.chapterId) ?? 0) + 1)
     }
-    return [...map.entries()].sort((a, b) => a[0] - b[0])
-  }, [queue])
+    return index.chapters.map((c) => {
+      const points = c.sections.reduce((m, s) => m + s.points.length, 0)
+      const hot = c.sections.reduce(
+        (m, s) =>
+          m +
+          s.points.reduce(
+            (k, p) => k + (p.hot ?? 0),
+            0,
+          ),
+        0,
+      )
+      return {
+        id: c.id,
+        num: c.num,
+        title: c.title,
+        difficulty: c.info.difficulty,
+        points,
+        hot,
+        queued: queueCount.get(c.id) ?? 0,
+      }
+    })
+  }, [index, queue])
 
-  // 进度统计
-  const stats = useMemo(() => {
-    if (!index) return { total: 0, done: 0 }
-    const total = index.chapters.reduce(
-      (n, c) => n + c.sections.reduce((m, s) => m + s.points.length, 0),
-      0,
-    )
-    return { total, done: 0 }
-  }, [index])
+  const totalPoints = chapters.reduce((n, c) => n + c.points, 0)
 
   if (queue.length === 0) {
     return (
@@ -70,7 +74,7 @@ export function TodayView({
       </div>
 
       <p className="today-hint">
-        共 {queue.length} 个考点 · 全书 {stats.total} 个考点 ·
+        共 {queue.length} 个考点待处理 · 全书 {totalPoints} 个考点 ·
         建议一次做一个闭环（15–25 分钟）
       </p>
 
@@ -78,32 +82,38 @@ export function TodayView({
         开始今日队列
       </button>
 
-      <div className="today-groups">
-        {byChapter.map(([num, group]) => (
-          <div key={num} className="today-group">
-            <h4 className="today-group-title">
-              第{num}章 {group.title}
-            </h4>
-            <div className="point-grid">
-              {group.items.map((q) => (
-                <button
-                  key={q.pid}
-                  className="point-chip"
-                  onClick={() => onOpenPoint(q.chapterId, q.pointNum)}
-                >
-                  <span className={`reason-dot is-${q.reason}`} />
-                  <span className="point-idx">{String(q.pointNum).padStart(2, '0')}</span>
-                  <span className="point-name">{q.pointTitle}</span>
-                  {q.hot != null && <span className="badge badge-hot">热{q.hot}</span>}
-                  <span className="point-reason">{REASON_LABEL[q.reason]}</span>
-                  {q.overdue > 0 && (
-                    <span className="badge badge-overdue">逾期{q.overdue}天</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+      {/* 全书概览 —— 一章一行。
+          这里刻意不铺开全部考点：那是「教材库」的内容，铺两份就是重复。 */}
+      <div className="today-overview">
+        <div className="today-overview-head">
+          <h4 className="today-group-title">全书概览</h4>
+          <span className="muted small">点章名进教材库</span>
+        </div>
+        <div className="today-chapter-rows">
+          {chapters.map((c) => (
+            <button
+              key={c.id}
+              className="today-chapter-row"
+              onClick={() => onOpenChapter(c.id)}
+            >
+              <span className="today-chapter-no">第{c.num}章</span>
+              <span className="today-chapter-name">{c.title}</span>
+              {c.difficulty && (
+                <span className={`badge badge-diff is-${c.difficulty}`}>
+                  {c.difficulty}
+                </span>
+              )}
+              {c.hot > 0 && (
+                <span className="muted small">5年热点 {c.hot} 次</span>
+              )}
+              <span style={{ flex: 1 }} />
+              {c.queued > 0 && (
+                <span className="count-chip is-new">{c.queued} 待学</span>
+              )}
+              <span className="muted small">{c.points} 考点</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

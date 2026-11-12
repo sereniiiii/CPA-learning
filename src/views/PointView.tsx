@@ -6,7 +6,7 @@ import {
   UserData,
   UserQuestion,
 } from '../types'
-import { ErrorCause, pointId } from '../types'
+import { ErrorCause, Example, pointId } from '../types'
 import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
@@ -53,6 +53,8 @@ export function PointView({
   const [blockIndex, setBlockIndex] = useState<Record<string, BlockMeta>>({})
   const [blocksLoading, setBlocksLoading] = useState(true)
   const [zoomedExample, setZoomedExample] = useState<string | null>(null)
+  /** 被「遮住自测」的例题 ID 集合 */
+  const [hiddenExamples, setHiddenExamples] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     setCause(null)
@@ -116,6 +118,43 @@ export function PointView({
   // 覆盖层生效：显示用户改写后的标题与正文
   const displayTitle = overlay?.title ?? point.title
   const myQuestions = userData.questions.filter((q) => q.pointId === pid)
+
+  /**
+   * 例题自评。
+   *
+   * 做错 → 直接进错题本（错题本按科目+章节归类，用户确认过这样就行）。
+   * 例题级 ID 与考点级 ID 在同一个 reviews 空间里，所以掌握度能分别统计。
+   */
+  const judgeExample = (
+    exId: string,
+    result: 'correct' | 'wrong',
+    exNo: number | null | undefined,
+    ex: Example | undefined,
+  ) => {
+    const next = applyAnswer(state, exId, result)
+    onStateChange(next)
+    if (result === 'wrong') {
+      onStateChange(
+        updateWrongBook(
+          next,
+          {
+            pointId: exId,
+            exampleId: exId,
+            exampleTitle: ex?.type ? `例题${exNo} · ${ex.type}` : `例题${exNo}`,
+            exampleType: ex?.type ?? null,
+            exampleAnswer: ex?.answer ?? null,
+            chapterNum: chapter.num,
+            chapterTitle: chapter.title,
+            pointTitle: displayTitle,
+            cause: null,
+          },
+          true,
+        ),
+      )
+    } else {
+      onStateChange(updateWrongBook(next, { pointId: exId } as never, false))
+    }
+  }
 
   const handleAnswer = (result: AnswerResult) => {
     let next = applyAnswer(state, pid, result)
@@ -290,6 +329,9 @@ export function PointView({
               const no = meta?.exampleNo
               const ex = (point.examples ?? []).find((e) => e.no === no)
               const ans = ex?.answer
+              const exId = no != null ? `${pid}-e${no}` : null
+              const exState = exId ? state.reviews[exId] : undefined
+              const hidden = !!exId && hiddenExamples.has(exId)
               return (
                 <figure key={name} className="block-card">
                   <div className="block-card-head">
@@ -300,37 +342,93 @@ export function PointView({
                       <span className="muted small">{ex.type}</span>
                     )}
                     <div style={{ flex: 1 }} />
+                    {exState?.lastResult === 'correct' && (
+                      <span className="badge badge-ok">已会</span>
+                    )}
+                    {exState?.lastResult === 'wrong' && (
+                      <span className="badge badge-wrong">做错</span>
+                    )}
                     <span className="muted small">
                       {meta ? `${meta.volume} · PDF 第${meta.pdfPage}页` : ''}
                     </span>
                   </div>
+
+                  {/* 答案区（遮住 / 展开） */}
+                  {hidden ? (
+                    <div className="ex-mask">
+                      <p className="muted small">答案已遮住 —— 凭记忆想一遍再展开</p>
+                      <button
+                        className="ex-reveal"
+                        onClick={() => setHiddenExamples((s) => {
+                          const n = new Set(s)
+                          n.delete(exId!)
+                          return n
+                        })}
+                      >
+                        展开答案
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="example-answer-row">
+                      {ans ? (
+                        <span className="example-answer">
+                          答案 <b>{ans}</b>
+                        </span>
+                      ) : (
+                        <span
+                          className="example-answer example-answer-none"
+                          title="计算分析题的答案见上方原书解析"
+                        >
+                          答案见上方解析
+                        </span>
+                      )}
+                      {exId && (
+                        <button
+                          className="tool-btn"
+                          style={{ color: 'var(--ink-3)' }}
+                          onClick={() =>
+                            setHiddenExamples((s) => {
+                              const n = new Set(s)
+                              n.add(exId)
+                              return n
+                            })
+                          }
+                        >
+                          遮住自测
+                        </button>
+                      )}
+                      {meta?.label && (
+                        <span className="example-caption">
+                          {meta.label.slice(0, 40)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <img
                     src={learningApi.shotUrl(name, subjectId)}
                     alt={meta?.label ?? '教材例题'}
                     loading="lazy"
                     onClick={() => setZoomedExample(name)}
                   />
-                  {/* 答案紧贴图片下沿 —— 图片底部就是教材的解析，
-                      答案接在解析后面，读起来是一条连贯的流 */}
-                  <div className="example-answer-row">
-                    {ans ? (
-                      <span className="example-answer">
-                        答案 <b>{ans}</b>
-                      </span>
-                    ) : (
-                      <span
-                        className="example-answer example-answer-none"
-                        title="计算分析题的答案见上方原书解析"
+
+                  {/* 做完自评 —— 做错直接进错题本（按科目+章节归类） */}
+                  {exId && (
+                    <div className="ex-judge">
+                      <button
+                        className="answer-btn is-correct"
+                        onClick={() => judgeExample(exId, 'correct', no, ex)}
                       >
-                        答案见上方解析
-                      </span>
-                    )}
-                    {meta?.label && (
-                      <span className="example-caption">
-                        {meta.label.slice(0, 46)}
-                      </span>
-                    )}
-                  </div>
+                        做对了
+                      </button>
+                      <button
+                        className="answer-btn is-wrong"
+                        onClick={() => judgeExample(exId, 'wrong', no, ex)}
+                      >
+                        做错了
+                      </button>
+                    </div>
+                  )}
                 </figure>
               )
             })}

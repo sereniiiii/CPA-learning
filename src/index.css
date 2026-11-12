@@ -2818,3 +2818,106 @@ a { color: var(--blue); }
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ============================================================
+   今日页：全书概览（按章一行，不重复教材库）
+   ============================================================ */
+
+.today-overview {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.today-overview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.today-overview-head .today-group-title {
+  margin: 0;
+}
+
+.today-chapter-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.today-chapter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.13s;
+}
+
+.today-chapter-row:first-child {
+  border-top: none;
+}
+
+.today-chapter-row:hover {
+  background: var(--blue-soft);
+}
+
+.today-chapter-no {
+  flex-shrink: 0;
+  width: 52px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.today-chapter-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ============================================================
+   教材例题自测
+   ============================================================ */
+
+.ex-mask {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.ex-judge {
+  display: flex;
+  gap: 7px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+}
+
+.ex-judge .answer-btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.badge-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.badge-wrong {
+  background: var(--red-soft);
+  color: var(--red);
+}

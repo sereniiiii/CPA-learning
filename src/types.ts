@@ -193,8 +193,24 @@ export interface ReviewState {
 }
 
 export interface WrongItem {
-  /** 考点 ID（ch01-p01） */
+  /**
+   * 错题目标 ID。
+   *
+   * 两种：
+   *   考点级  ch01-s01-p01
+   *   例题级  ch01-s01-p01-e3（教材例题 / 同步习题）
+   *
+   * 例题做错也直接进错题本（按科目+章节归类），所以要能区分来源。
+   */
   pointId: string
+  /** 例题级错题的额外信息 */
+  exampleId?: string | null
+  /** 例题题干摘要（列表显示） */
+  exampleTitle?: string | null
+  /** 例题所属类型（多选题 / 计算分析题…） */
+  exampleType?: string | null
+  /** 例题正确答案（教材给的） */
+  exampleAnswer?: string | null
   chapterNum: number
   chapterTitle: string
   pointTitle: string
@@ -377,6 +393,16 @@ export function pointId(
 
 /** 例题唯一 ID */
 export function exampleId(
+  chapterId: string,
+  sectionNum: number,
+  pointNum: number,
+  exNo: number,
+): string {
+  return `${pointId(chapterId, sectionNum, pointNum)}-e${exNo}`
+}
+
+/** 例题唯一 ID（教材例题 / 同步习题共用） */
+export function exampleKey(
   chapterId: string,
   sectionNum: number,
   pointNum: number,
