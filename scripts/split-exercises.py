@@ -264,6 +264,34 @@ def process_chapter(ch, a_pages, out_dir, full, find_chapter):
     return groups_out
 
 
+def verify_chapters():
+    """
+    校验章节文件的关键字段都在。
+
+    血泪教训：多个脚本写同一个输出文件时，后跑的会冲掉先跑的字段。
+    这个检查放在最后跑，任何脚本冲掉字段都会在这里被发现。
+    """
+    out = f"{BASE}/build/upload/subjects/cwc/chapters"
+    problems = []
+    for f in sorted(os.listdir(out)):
+        if not f.endswith(".json"):
+            continue
+        ch = json.load(open(f"{out}/{f}", encoding="utf-8"))
+        points = [p for s in ch.get("sections", []) for p in s.get("points", [])]
+        no_blocks = [p for p in points if not p.get("blocks")]
+        if no_blocks:
+            problems.append(f"{f}: {len(no_blocks)}/{len(points)} 个考点缺 blocks")
+        if not ch.get("exerciseGroups"):
+            problems.append(f"{f}: 缺 exerciseGroups")
+    if problems:
+        print("\n❌ 章节文件校验失败：")
+        for p in problems[:10]:
+            print("   ", p)
+        return 1
+    print("✅ 章节文件校验通过（blocks + exerciseGroups 都在）")
+    return 0
+
+
 def main():
     tmp_dir = f"{BASE}/build/_crops"
     os.makedirs(tmp_dir, exist_ok=True)
@@ -330,13 +358,26 @@ def main():
 
     print(f"\n合计：{total_q} 道题，{total_a} 道有答案 ({total_a/max(total_q,1)*100:.0f}%)")
 
+    # 写回章节 JSON。
+    #
+    # 关键：**必须基于 merge-blocks.py 已经写好的章节文件**，
+    # 只把 exerciseGroups 加进去。
+    # 之前直接写 build/textbook.json 的原章数据，
+    # 把 merge 写的 blocks 字段冲掉了 —— 教材内容区块整个消失。
     out = f"{BASE}/build/upload"
     os.makedirs(f"{out}/subjects/cwc/chapters", exist_ok=True)
     for ch in book["chapters"]:
-        json.dump(ch, open(f"{out}/subjects/cwc/chapters/{ch['id']}.json", "w",
-                           encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        path = f"{out}/subjects/cwc/chapters/{ch['id']}.json"
+        if os.path.exists(path):
+            merged = json.load(open(path, encoding="utf-8"))
+            merged["exerciseGroups"] = ch.get("exerciseGroups", [])
+            json.dump(merged, open(path, "w", encoding="utf-8"),
+                      ensure_ascii=False, separators=(",", ":"))
+        else:
+            json.dump(ch, open(path, "w", encoding="utf-8"),
+                      ensure_ascii=False, separators=(",", ":"))
     print(f"→ {out}/subjects/cwc/chapters/")
-    return 0
+    return verify_chapters()
 
 
 if __name__ == "__main__":

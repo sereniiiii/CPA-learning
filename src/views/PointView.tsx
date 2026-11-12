@@ -711,12 +711,15 @@ function BlockGallery({
                 <div style={{ flex: 1 }} />
                 {pageMark && <span className="muted small">{pageMark}</span>}
               </div>
-              <BlockImage
-                name={name}
-                subjectId={subjectId}
-                alt={meta?.label ?? '教材知识块'}
-                onClick={() => setZoomed(name)}
-              />
+              {/* 标注模式下不重复渲染原图（标注器里已经带了图） */}
+              {annotatingBlock !== name && (
+                <BlockImage
+                  name={name}
+                  subjectId={subjectId}
+                  alt={meta?.label ?? '教材知识块'}
+                  onClick={() => setZoomed(name)}
+                />
+              )}
               {annotatingBlock === name ? (
                 <ImageAnnotator
                   imageUrl={learningApi.shotUrl(name, subjectId)}
