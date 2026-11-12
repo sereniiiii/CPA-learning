@@ -191,17 +191,20 @@ def main():
                 label = re.sub(r'[^\w一-鿿]', '', b["label"])[:18]
                 out_name = f"{kind}-{vol}-{page_seq:04d}-{i:02d}.png"
                 png_path = os.path.join(sdir, out_name)
-                if os.path.exists(png_path):
-                    continue
+                # 注意：不能因为文件已存在就跳过 ——
+                # manifest 必须记录每个块，否则归并会漏。
+                # 已存在只跳过渲染，不跳过记录。
+                already = os.path.exists(png_path)
 
                 # 临时 PDF 复用同一文件名（覆盖写），避免产生/删除大量文件
                 tmp_pdf = os.path.join(tmp_dir, "crop.pdf")
-                try:
-                    crop_page(page, W, H, y_top, y_bottom, tmp_pdf)
-                    if render(tmp_pdf, png_path):
-                        stats["rendered"] += 1
-                except Exception as exc:
-                    print(f"  裁剪失败 {out_name}：{exc}")
+                if not already:
+                    try:
+                        crop_page(page, W, H, y_top, y_bottom, tmp_pdf)
+                        if render(tmp_pdf, png_path):
+                            stats["rendered"] += 1
+                    except Exception as exc:
+                        print(f"  裁剪失败 {out_name}：{exc}")
 
                 manifest.append({
                     "file": f"{subject}/{out_name}",
