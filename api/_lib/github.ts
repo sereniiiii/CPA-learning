@@ -102,12 +102,23 @@ async function getHead(branch: string): Promise<CommitRef | null> {
   return { sha: data.object.sha }
 }
 
-/** 读取整棵目录树（递归） */
+/**
+ * 读取分支当前的文件清单（递归）。
+ *
+ * 走 head commit → commit.tree → tree，而不是直接读分支树：
+ * 分支引用刚被更新时，分支树快照可能仍是旧的（新建笔记后立刻保存会读不到自己），
+ * 而 head commit 指向的是最新提交，实时可靠。
+ */
 async function getTree(branch: string): Promise<Array<{ path: string; sha: string; size: number }>> {
   const cfg = config()
-  const res = await fetch(`${API}/repos/${cfg.owner}/${cfg.repo}/git/trees/${branch}?recursive=1`, {
-    headers: authHeaders(),
-  })
+  const head = await getHead(branch)
+  if (!head) return []
+
+  const commit = await gh<{ tree: TreeRef }>(`/git/commits/${head.sha}`)
+  const res = await fetch(
+    `${API}/repos/${cfg.owner}/${cfg.repo}/git/trees/${commit.tree.sha}?recursive=1`,
+    { headers: authHeaders() },
+  )
   if (res.status === 404) return []
   if (!res.ok) throw new Error(`GitHub API ${res.status} tree ${branch}`)
   const data = (await res.json()) as {
@@ -118,20 +129,15 @@ async function getTree(branch: string): Promise<Array<{ path: string; sha: strin
     .map((t) => ({ path: t.path, sha: t.sha, size: t.size ?? 0 }))
 }
 
-/** 按 sha 读取 blob 原始字节 */
-async function getBlob(sha: string): Promise<Buffer> {
-  const cfg = config()
-  const res = await fetch(`${API}/repos/${cfg.owner}/${cfg.repo}/git/blobs/${sha}`, {
-    headers: authHeaders(),
-  })
-  if (!res.ok) throw new Error(`GitHub API ${res.status} blob ${sha}`)
-  const data = (await res.json()) as { content: string }
-  return Buffer.from(data.content.replace(/\n/g, ''), 'base64')
-}
-
 /**
  * 原子提交：一次 commit 写入多个文件。
  * files: { path, content: Buffer | string, delete?: boolean }[]
+ *
+ * 实现要点：
+ * - GitHub Tree API 接受带斜杠的完整路径（如 data/pages/x.json），
+ *   会自动创建中间目录，无需手动建层级。
+ * - 不使用 base_tree 继承：base_tree 不接受 sha:null 的删除项（返回 422），
+ *   改为「重建整棵树」——保留未受影响的文件，把要删的路径直接不列进去。
  */
 async function commitFiles(
   files: Array<{ path: string; content: Buffer | string; delete?: boolean }>,
@@ -141,19 +147,20 @@ async function commitFiles(
   const branch = cfg.branch
 
   const head = await getHead(branch)
-  let baseTree: string | undefined
-  if (head) {
-    const commit = await gh<{ tree: TreeRef }>(`/git/commits/${head.sha}`)
-    baseTree = commit.tree.sha
+
+  // 现有文件（递归），保留未受本次操作影响的部分
+  const existing = await getTree(branch)
+  const touched = new Set(files.map((f) => f.path))
+  const entries: Array<Record<string, string>> = []
+
+  for (const item of existing) {
+    if (touched.has(item.path)) continue
+    entries.push({ path: item.path, mode: '100644', type: 'blob', sha: item.sha })
   }
 
-  const treeEntries: Array<Record<string, string | null>> = []
+  // 本次写入的文件；删除项直接跳过（不列进新树即等于删除）
   for (const file of files) {
-    if (file.delete) {
-      // 删除文件：sha 传 null 表示从树中移除该路径
-      treeEntries.push({ path: file.path, mode: '100644', type: 'blob', sha: null })
-      continue
-    }
+    if (file.delete) continue
     const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content, 'utf8')
     const blob = await gh<BlobRef>('/git/blobs', {
       method: 'POST',
@@ -162,12 +169,12 @@ async function commitFiles(
         encoding: 'base64',
       }),
     })
-    treeEntries.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha })
+    entries.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha })
   }
 
   const tree = await gh<TreeRef>('/git/trees', {
     method: 'POST',
-    body: JSON.stringify({ base_tree: baseTree, tree: treeEntries }),
+    body: JSON.stringify({ tree: entries }),
   })
 
   const commit = await gh<CommitRef>('/git/commits', {
@@ -198,12 +205,30 @@ async function commitFiles(
 
 const INDEX_PATH = 'data/index.json'
 
-export async function readIndex(): Promise<IndexData> {
+/**
+ * 读取分支上的文件内容。
+ *
+ * 走 head commit → tree → blob 这条路径，而非 Contents API：
+ * Contents API 建立在 CDN 缓存之上，刚写入的内容可能短暂读不到
+ * （新建笔记后立刻保存会失败）；而 head commit 指向最新提交，实时可靠。
+ */
+async function readContent(path: string): Promise<string | null> {
   const files = await getTree(config().branch)
-  const entry = files.find((f) => f.path === INDEX_PATH)
-  if (!entry) return { pages: [] }
+  const entry = files.find((f) => f.path === path)
+  if (!entry) return null
+  const cfg = config()
+  const res = await fetch(`${API}/repos/${cfg.owner}/${cfg.repo}/git/blobs/${entry.sha}`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`GitHub API ${res.status} blob ${path}`)
+  const data = (await res.json()) as { content: string }
+  return Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf8')
+}
+
+export async function readIndex(): Promise<IndexData> {
+  const text = await readContent(INDEX_PATH)
+  if (!text) return { pages: [] }
   try {
-    const text = (await getBlob(entry.sha)).toString('utf8')
     const parsed = JSON.parse(text) as IndexData
     return Array.isArray(parsed.pages) ? parsed : { pages: [] }
   } catch {
@@ -212,17 +237,20 @@ export async function readIndex(): Promise<IndexData> {
 }
 
 export async function readFile(path: string): Promise<string | null> {
-  const files = await getTree(config().branch)
-  const entry = files.find((f) => f.path === path)
-  if (!entry) return null
-  return (await getBlob(entry.sha)).toString('utf8')
+  return readContent(path)
 }
 
 export async function readBinary(path: string): Promise<Buffer | null> {
   const files = await getTree(config().branch)
   const entry = files.find((f) => f.path === path)
   if (!entry) return null
-  return getBlob(entry.sha)
+  const cfg = config()
+  const res = await fetch(`${API}/repos/${cfg.owner}/${cfg.repo}/git/blobs/${entry.sha}`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`GitHub API ${res.status} blob ${path}`)
+  const data = (await res.json()) as { content: string }
+  return Buffer.from(data.content.replace(/\n/g, ''), 'base64')
 }
 
 export function pagePath(id: string): string {
