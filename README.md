@@ -140,18 +140,40 @@ cd CPA-learning && git checkout data
 
 导出文件是纯文本 JSON，可以直接用文本编辑器查看，也能被脚本处理。
 
-### 第三层：自动定时备份（需额外配置）
+### 第三层：本机每日自动备份（脚本已就位，需你运行一次安装）
+
+`scripts/local-backup.sh` 每天从 GitHub 拉取 `data` 分支，存到 `~/Documents/CPA-learning-backup/`：
+- `latest/` —— 最新快照
+- `snapshots/YYYYMMDD-HHMMSS/` —— 历史归档，保留最近 30 份
+
+**安装方式**（在你自己 Terminal 里跑一次）：
+
+```bash
+bash /Users/seren/WorkBuddy/2026-11-12-00-20-32/study-hub/scripts/install-backup-job.sh
+```
+
+它会装好 plist、注册到 launchd（每天 12:30 自动跑）、并立即执行一次验证。
+日志在 `~/Library/Logs/cpa-backup.log`。
+
+卸载：`launchctl bootout gui/$(id -u)/com.serenii.cpa-backup`
+
+> 注：WorkBuddy 沙箱无法执行 `launchctl load`（报 `Load failed: 5`），
+> 必须由你在自己的 Terminal 里跑上面那条命令。
+
+### 第四层：腾讯云 COS 异地备份（需额外配置）
 
 `.github/workflows/backup.yml` 已写好（每日 UTC 15:00 = 北京时间 23:00），
-但**提交它需要 GitHub token 带 `workflow` 权限**，当前 token 没有，故未上传。
+会打包 `data` 分支并上传到 COS，同时存一份 Release 附件。
 
-配置好权限后推上去即可生效，它会：
-1. 把 `data` 分支打包成 tar.gz
-2. 存为 GitHub Release 附件（本地兜底）
-3. 若配置了腾讯云 COS 密钥，同时上传到 COS（异地备份）
+**但它现在推不上去** —— GitHub 拒绝没有 `workflow` 权限的 token 提交 CI 文件
+（Fine-grained PAT 默认没有这项权限）。启用需要两步：
 
-COS 需要在仓库 Settings → Secrets → Actions 添加四个变量：
-`COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_REGION`、`COS_BUCKET`。
+1. 给 token 加权限：Settings → Developer settings → Fine-grained tokens → `study-hub`
+   → Permissions → Repository permissions → **Workflows** → Read and write
+2. 在仓库 Settings → Secrets → Actions 添加四个变量：
+   `COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_REGION`、`COS_BUCKET`
+
+（腾讯云 COS 需先在控制台开通存储桶并拿到密钥。免费额度足够个人使用。）
 
 ## 注意事项
 
