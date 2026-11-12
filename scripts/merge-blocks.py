@@ -238,13 +238,32 @@ def main():
               ensure_ascii=False, separators=(",", ":"))
 
     # 块索引（前端按需取图）
-    block_index = {b["file"].split("/")[-1]: {
-        "kind": b["kind"],
-        "volume": b["volume"],
-        "pdfPage": b["pdfPage"],
-        "label": b["label"],
-        "exampleNo": b.get("exampleNo"),
-    } for b in blocks}
+    #
+    # 带 __version：图片内容变了但文件名不变时，浏览器/边缘缓存
+    # （Cache-Control: immutable）会一直返回旧图。
+    # 前端把 version 拼到图片 URL 上，内容一变 URL 就变，缓存自然失效。
+    import hashlib
+
+    h = hashlib.sha1()
+    for b in blocks:
+        h.update(b["file"].encode())
+        src_file = os.path.join(BASE, "build/blocks", b["file"])
+        try:
+            h.update(str(os.path.getsize(src_file)).encode())
+        except OSError:
+            pass
+    content_version = h.hexdigest()[:12]
+
+    block_index = {
+        "__version": content_version,
+        **{b["file"].split("/")[-1]: {
+            "kind": b["kind"],
+            "volume": b["volume"],
+            "pdfPage": b["pdfPage"],
+            "label": b["label"],
+            "exampleNo": b.get("exampleNo"),
+        } for b in blocks},
+    }
     json.dump(block_index, open(f"{out}/subjects/cwc/blocks.json", "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
 

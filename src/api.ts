@@ -97,6 +97,9 @@ export async function uploadImage(dataUrl: string): Promise<string> {
 
 /* ---------- 教材内容库 ---------- */
 
+/** 内容库版本（图片内容变化时变化，用于破缓存） */
+let contentVersion = ''
+
 export const learningApi = {
   getSubjects: () =>
     request<import('./types').Subject[]>('/api/textbook?kind=subjects'),
@@ -142,17 +145,24 @@ export const learningApi = {
     ),
 
   /** 知识块索引：文件名 → 元数据（类型、来源页、标签） */
-  getBlockIndex: (subject = 'cwc') =>
-    request<Record<string, {
+  getBlockIndex: async (subject = 'cwc') => {
+    const map = await request<Record<string, {
       kind: 'point' | 'example' | 'label'
       volume: string
       pdfPage: number
       label: string
       exampleNo: number | null
-    }>>(`/api/textbook?kind=blockIndex&subject=${encodeURIComponent(subject)}`),
+    }>>(`/api/textbook?kind=blockIndex&subject=${encodeURIComponent(subject)}`)
+    // 内容版本：图片内容变了但文件名不变时，immutable 缓存会一直返回旧图。
+    // 记下版本并拼到图片 URL 上，URL 一变缓存自然失效。
+    contentVersion = (map as { __version?: string }).__version ?? ''
+    return map
+  },
 
   shotUrl: (name: string, subject = 'cwc') =>
-    `/api/textbook?kind=shot&name=${encodeURIComponent(name)}&subject=${encodeURIComponent(subject)}`,
+    `/api/textbook?kind=shot&name=${encodeURIComponent(name)}&subject=${encodeURIComponent(subject)}${
+      contentVersion ? `&v=${contentVersion}` : ''
+    }`,
 }
 
 /* ---------- 导入导出 ---------- */
