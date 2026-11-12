@@ -238,9 +238,22 @@ def parse_exam_info(text: str) -> dict:
         info["difficulty"] = m.group(1)
         info["studyHours"] = float(m.group(2))
 
-    m = re.search(r"常考题型\s+(客观题\s*\+?\s*主观题|客观题|主观题)", text)
-    if m:
-        info["examTypes"] = m.group(1).replace(" ", "")
+    # 常考题型与平均分值在同一行、用大空格分隔：
+    #   '易，建议学习时长7小时    客观题    2.5分'
+    # 表头「常考题型」和「近5年考试平均分值」在上一行，不能按行取。
+    for ln in text.split("\n"):
+        if not re.search(r"建议学习时长", ln):
+            continue
+        # 切列：难度段 / 题型段 / 分值段
+        cols = [c.strip() for c in re.split(r"\s{8,}", ln) if c.strip()]
+        for c in cols:
+            if re.search(r"客观题|主观题", c) and "examTypes" not in info:
+                types = "".join(re.findall(r"客观题|主观题", c))
+                info["examTypes"] = types
+            m2 = re.search(r"([\d.]+)\s*分", c)
+            if m2 and "avgScore" not in info:
+                info["avgScore"] = float(m2.group(1))
+        break
 
     m = re.search(r"近\s*5\s*年考试平均分值\s+([\d.]+)\s*分", text)
     if m:
