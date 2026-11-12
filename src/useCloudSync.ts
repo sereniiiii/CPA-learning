@@ -25,6 +25,36 @@ export interface CloudSync {
  * 云端是唯一真相源 —— 换设备时从这里拉。
  * 断网时降级为纯本地，不阻塞使用。
  */
+/**
+ * 补全学习状态字段。
+ *
+ * 云端数据可能是旧版本结构 —— 字段缺失时补空值，
+ * 否则前端 Object.values(undefined) 会让整页白屏。
+ */
+function normalizeLearning(raw: Partial<LearningState> | null): LearningState {
+  return {
+    ...EMPTY_LEARNING,
+    ...(raw ?? {}),
+    reviews: raw?.reviews ?? {},
+    wrongBook: raw?.wrongBook ?? {},
+    subjective: raw?.subjective ?? {},
+  }
+}
+
+/** 补全用户数据字段（同上，防白屏） */
+function normalizeUserData(raw: Partial<UserData> | null): UserData {
+  return {
+    ...EMPTY_USER_DATA,
+    ...(raw ?? {}),
+    overlays: raw?.overlays ?? {},
+    annotations: raw?.annotations ?? {},
+    questions: raw?.questions ?? [],
+    subjectiveNotes: raw?.subjectiveNotes ?? {},
+    subjectiveTopics: raw?.subjectiveTopics ?? [],
+    exerciseAnswers: raw?.exerciseAnswers ?? {},
+  }
+}
+
 export function useCloudSync(enabled: boolean): CloudSync {
   const [learning, setLearningState] = useState<LearningState>(EMPTY_LEARNING)
   const [userData, setUserDataState] = useState<UserData>(EMPTY_USER_DATA)
@@ -44,14 +74,14 @@ export function useCloudSync(enabled: boolean): CloudSync {
     const localUser = localStorage.getItem(LOCAL_USER_KEY)
     if (localLearning) {
       try {
-        setLearningState(JSON.parse(localLearning) as LearningState)
+        setLearningState(normalizeLearning(JSON.parse(localLearning)))
       } catch {
         /* 用空状态 */
       }
     }
     if (localUser) {
       try {
-        setUserDataState(JSON.parse(localUser) as UserData)
+        setUserDataState(normalizeUserData(JSON.parse(localUser)))
       } catch {
         /* 用空状态 */
       }
@@ -61,8 +91,10 @@ export function useCloudSync(enabled: boolean): CloudSync {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data) return
-        if (data.learning) setLearningState(data.learning)
-        if (data.userData) setUserDataState(data.userData)
+        // 必须做字段补全 —— 云端存的是旧版本结构，
+        // 缺字段直接覆盖会让 Object.values(undefined) 崩掉（整页白屏）。
+        if (data.learning) setLearningState(normalizeLearning(data.learning))
+        if (data.userData) setUserDataState(normalizeUserData(data.userData))
         loaded.current = true
         setLastSyncedAt(new Date().toISOString())
       })

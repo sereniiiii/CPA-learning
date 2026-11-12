@@ -233,7 +233,7 @@ export default function App() {
   }
 
   const currentSubject = subjects.find((s) => s.id === subjectId)
-  const annoCount = Object.values(userData.annotations).filter(
+  const annoCount = Object.values(userData.annotations ?? {}).filter(
     (a) => a.subjectId === subjectId,
   ).length
 
@@ -271,8 +271,10 @@ export default function App() {
               {t.id === 'today' && queue.length > 0 && (
                 <span className="tab-badge">{queue.length}</span>
               )}
-              {t.id === 'wrong' && Object.keys(learning.wrongBook).length > 0 && (
-                <span className="tab-badge">{Object.keys(learning.wrongBook).length}</span>
+              {t.id === 'wrong' && Object.keys(learning.wrongBook ?? {}).length > 0 && (
+                <span className="tab-badge">
+                  {Object.keys(learning.wrongBook ?? {}).length}
+                </span>
               )}
               {t.id === 'anno' && annoCount > 0 && (
                 <span className="tab-badge">{annoCount}</span>

@@ -32,7 +32,7 @@ export function AnnotationPanel({
 
   // 按科目过滤 → 按章 → 节 → 考点分组
   const grouped = useMemo(() => {
-    const mine = Object.values(userData.annotations).filter(
+    const mine = Object.values(userData.annotations ?? {}).filter(
       (a) => a.subjectId === subjectId,
     )
 
@@ -82,7 +82,7 @@ export function AnnotationPanel({
       })
   }, [userData.annotations, subjectId, chapters])
 
-  const total = Object.values(userData.annotations).filter(
+  const total = Object.values(userData.annotations ?? {}).filter(
     (a) => a.subjectId === subjectId,
   ).length
 

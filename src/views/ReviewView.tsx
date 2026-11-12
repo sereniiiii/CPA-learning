@@ -19,7 +19,7 @@ export function ReviewView({
       overdue: number
       mastery: number
     }> = []
-    for (const [pid, r] of Object.entries(state.reviews)) {
+    for (const [pid, r] of Object.entries(state.reviews ?? {})) {
       if (!r.due) continue
       const overdue = Math.round(
         (new Date(today).getTime() - new Date(r.due).getTime()) / 86400000,
@@ -89,7 +89,7 @@ export function WrongBookView({
   onOpenPoint: (chapterId: string, pointNum: number) => void
 }) {
   const groups = useMemo(() => groupWrongByCause(state.wrongBook), [state.wrongBook])
-  const total = Object.keys(state.wrongBook).length
+  const total = Object.keys(state.wrongBook ?? {}).length
 
   return (
     <div className="canvas">
@@ -141,7 +141,7 @@ export function ArchiveView({
   const items = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
     const out: Array<{ pid: string; mastery: number; decayed: number; days: number }> = []
-    for (const [pid, r] of Object.entries(state.reviews)) {
+    for (const [pid, r] of Object.entries(state.reviews ?? {})) {
       if (r.mastery < 60) continue
       const days = r.lastReviewed
         ? Math.round(

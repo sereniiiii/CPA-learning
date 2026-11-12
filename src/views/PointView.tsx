@@ -56,10 +56,10 @@ export function PointView({
     setSelfRated('none')
     setAddingQuestion(false)
     learningApi
-      .getChapter(chapterId)
+      .getChapter(chapterId, subjectId)
       .then(setChapter)
       .catch((e) => setErr(String(e)))
-  }, [chapterId, pointNum])
+  }, [chapterId, pointNum, subjectId])
 
   if (err) return <div className="view-loading is-error">{err}</div>
   if (!chapter) return <div className="view-loading">加载中…</div>

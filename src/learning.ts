@@ -310,7 +310,7 @@ export function buildArchive(state: LearningState, today = todayStr()): Array<{
   daysSince: number
 }> {
   const out: Array<{ pid: string; title: string; mastery: number; decayedTo: number; daysSince: number }> = []
-  for (const [pid, r] of Object.entries(state.reviews)) {
+  for (const [pid, r] of Object.entries(state.reviews ?? {})) {
     if (r.mastery < 60) continue
     const days = r.lastReviewed ? daysBetween(r.lastReviewed, today) : 0
     const now = decayMastery(r.mastery, days)
