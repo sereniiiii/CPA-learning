@@ -334,12 +334,42 @@ export const EMPTY_USER_DATA: UserData = {
   updatedAt: '',
 }
 
-/** 考点唯一 ID */
-export function pointId(chapterId: string, pointNum: number): string {
-  return `${chapterId}-p${String(pointNum).padStart(2, '0')}`
+/**
+ * 考点唯一 ID。
+ *
+ * 必须带节号 —— 教材的考点编号是「每节重新从 01 开始」，
+ * 只用 (章, 考点号) 会在同一章的不同节之间冲突
+ * （第 1 节的考点01 与第 2 节的考点01 编号相同）。
+ */
+export function pointId(
+  chapterId: string,
+  sectionNum: number,
+  pointNum: number,
+): string {
+  return `${chapterId}-s${String(sectionNum).padStart(2, '0')}-p${String(pointNum).padStart(2, '0')}`
 }
 
 /** 例题唯一 ID */
-export function exampleId(chapterId: string, pointNum: number, exNo: number): string {
-  return `${chapterId}-p${String(pointNum).padStart(2, '0')}-e${exNo}`
+export function exampleId(
+  chapterId: string,
+  sectionNum: number,
+  pointNum: number,
+  exNo: number,
+): string {
+  return `${pointId(chapterId, sectionNum, pointNum)}-e${exNo}`
+}
+
+/** 解析考点 ID → { chapterId, sectionNum, pointNum } */
+export function parsePointId(pid: string): {
+  chapterId: string
+  sectionNum: number
+  pointNum: number
+} | null {
+  const m = pid.match(/^(.+)-s(\d+)-p(\d+)$/)
+  if (!m) return null
+  return {
+    chapterId: m[1],
+    sectionNum: Number(m[2]),
+    pointNum: Number(m[3]),
+  }
 }

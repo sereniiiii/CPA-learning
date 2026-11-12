@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { groupWrongByCause } from '../learning'
 import { ErrorCause, LearningState, WrongItem } from '../types'
-import { ERROR_CAUSES } from '../types'
+import { ERROR_CAUSES, parsePointId } from '../types'
 
 /** 复习区：全部到期队列，按逾期程度排序 */
 export function ReviewView({
@@ -62,8 +62,8 @@ export function ReviewView({
                 key={it.pid}
                 className="point-chip"
                 onClick={() => {
-                  const [chId, p] = it.pid.split('-p')
-                  onOpenPoint(chId, Number(p))
+                  const parsed = parsePointId(it.pid)
+                  if (parsed) onOpenPoint(parsed.chapterId, parsed.pointNum)
                 }}
               >
                 <span className="point-name">{it.pid}</span>
@@ -112,8 +112,8 @@ export function WrongBookView({
                 key={it.pointId}
                 className="point-chip"
                 onClick={() => {
-                  const [chId, p] = it.pointId.split('-p')
-                  onOpenPoint(chId, Number(p))
+                  const parsed = parsePointId(it.pointId)
+                  if (parsed) onOpenPoint(parsed.chapterId, parsed.pointNum)
                 }}
               >
                 <span className="point-name">{it.pointTitle}</span>
@@ -170,8 +170,8 @@ export function ArchiveView({
             key={it.pid}
             className="point-chip"
             onClick={() => {
-              const [chId, p] = it.pid.split('-p')
-              onOpenPoint(chId, Number(p))
+              const parsed = parsePointId(it.pid)
+              if (parsed) onOpenPoint(parsed.chapterId, parsed.pointNum)
             }}
           >
             <span className="point-name">{it.pid}</span>

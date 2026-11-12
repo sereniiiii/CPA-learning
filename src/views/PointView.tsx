@@ -7,7 +7,7 @@ import {
   UserData,
   UserQuestion,
 } from '../types'
-import { ErrorCause } from '../types'
+import { ErrorCause, pointId } from '../types'
 import { AnswerResult, applyAnswer, updateWrongBook } from '../learning'
 import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
@@ -64,7 +64,11 @@ export function PointView({
   if (err) return <div className="view-loading is-error">{err}</div>
   if (!chapter) return <div className="view-loading">加载中…</div>
 
-  const pid = `${chapterId}-p${String(pointNum).padStart(2, '0')}`
+  // 考点 ID 必须带节号（教材每节重新编号）
+  const secNum = chapter.sections.find((s) =>
+    s.points.some((x) => x.num === pointNum),
+  )?.num ?? 0
+  const pid = pointId(chapterId, secNum, pointNum)
   let point: Point | null = null
   for (const sec of chapter.sections) {
     const p = sec.points.find((x) => x.num === pointNum)

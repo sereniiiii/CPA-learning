@@ -48,6 +48,7 @@ def main():
                     "vol": vol,
                     "page": p["source"]["pdfPage"],
                     "chapterId": ch["id"],
+                    "sectionNum": sec["num"],
                     "pointNum": p["num"],
                     "point": p,
                 })
@@ -104,7 +105,12 @@ def main():
     for bp in points_seq:
         chapter_points[bp["chapterId"]].append(bp)
 
+    # 同章内「考点NN」可能重复（每节重新编号），
+    # 所以归属时要用「章节内出现顺序」而不是只按编号。
+    # 记录每个考点在章内的序号，供消歧。
+
     assignment = {}
+    used_keys = set()
     cur_key = None
     for b in blocks:
         parts = b["file"].split("/")[-1].replace(".png", "").split("-")
@@ -119,10 +125,22 @@ def main():
             cid = find_chapter(vol, page)
             if not cid:
                 continue
-            cands = [p for p in chapter_points[cid] if p["pointNum"] == pnum]
+            # 同章内可能有多个「考点NN」（每节重新编号），
+            # 取该章内编号匹配且尚未用过的第一个。
+            cands = [
+                p
+                for p in chapter_points[cid]
+                if p["pointNum"] == pnum
+                and (cid, p["sectionNum"], p["pointNum"]) not in used_keys
+            ]
+            if not cands:
+                # 该编号已被前面的节用掉 → 找下一个同号候选
+                cands = [p for p in chapter_points[cid] if p["pointNum"] == pnum]
             if not cands:
                 continue
-            cur_key = (cid, pnum)
+            chosen = cands[0]
+            used_keys.add((cid, chosen["sectionNum"], chosen["pointNum"]))
+            cur_key = (cid, chosen["sectionNum"], chosen["pointNum"])
         else:
             if cur_key is None:
                 continue
@@ -145,9 +163,15 @@ def main():
                                 "num": p["num"], "title": p["title"],
                                 "difficulty": p["difficulty"], "hot": p["hot"],
                                 "exampleCount": len(p["examples"]),
+                                "blockCount": len(
+                                    assignment.get((c["id"], s["num"], p["num"]), [])
+                                ),
                                 "blocks": [
                                     b["file"].split("/")[-1]
-                                    for b in assignment.get((c["id"], p["num"]), [])
+                                    for b in assignment.get(
+                                        (c["id"], s["num"], p["num"]),
+                                        [],
+                                    )
                                 ],
                             }
                             for p in s["points"]
@@ -172,7 +196,7 @@ def main():
             for p in sec["points"]:
                 p["blocks"] = [
                     b["file"].split("/")[-1]
-                    for b in assignment.get((ch["id"], p["num"]), [])
+                    for b in assignment.get((ch["id"], sec["num"], p["num"]), [])
                 ]
                 # 例题也带块
                 for ex in p["examples"]:
@@ -204,7 +228,9 @@ def main():
 
     assigned = sum(len(v) for v in assignment.values())
     with_blocks = sum(
-        1 for p in points_seq if assignment.get((p["chapterId"], p["pointNum"]))
+        1
+        for p in points_seq
+        if assignment.get((p["chapterId"], p["sectionNum"], p["pointNum"]))
     )
     print(f"块总数 {len(blocks)}，已归并 {assigned}（{assigned/len(blocks)*100:.0f}%）")
     print(f"有块的考点: {with_blocks}/{len(points_seq)}")

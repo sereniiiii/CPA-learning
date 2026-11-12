@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
-import { Annotation, ChapterMeta, Subject, UserData } from '../types'
+import { Annotation, ChapterMeta, Subject, UserData, parsePointId } from '../types'
 import { RichEditor } from '../editor/Editor'
 
 interface Props {
@@ -71,8 +71,8 @@ export function AnnotationPanel({
           byPoint.get(key)!.push(a)
         }
         const points = [...byPoint.entries()].sort((a, b) => {
-          const pa = a[0].match(/p(\d+)/)?.[1]
-          const pb = b[0].match(/p(\d+)/)?.[1]
+          const pa = parsePointId(a[0])?.pointNum
+          const pb = parsePointId(b[0])?.pointNum
           if (pa && pb) return Number(pa) - Number(pb)
           if (a[0] === '__chapter__') return -1
           if (b[0] === '__chapter__') return 1
@@ -196,8 +196,8 @@ export function AnnotationPanel({
                         <button
                           className="anno-jump"
                           onClick={() => {
-                            const m = a.pointId?.match(/p(\d+)/)
-                            if (m) onOpenPoint(a.chapterId!, Number(m[1]))
+                            const parsed = a.pointId ? parsePointId(a.pointId) : null
+                            if (parsed) onOpenPoint(parsed.chapterId, parsed.pointNum)
                           }}
                         >
                           {a.source.volume} 印刷页 {a.source.printPage}
@@ -328,10 +328,12 @@ function AnnotationEditor({
 
 /** 从考点 ID 里取出可读标签 */
 function pointLabel(pointKey: string, chapters: ChapterMeta[], chapterId: string) {
-  const m = pointKey.match(/p(\d+)/)
-  if (!m) return pointKey
+  const parsed = parsePointId(pointKey)
+  if (!parsed) return pointKey
   const ch = chapters.find((c) => c.id === chapterId)
-  const sec = ch?.sections.find((s) => s.points.some((p) => p.num === Number(m[1])))
-  const pt = sec?.points.find((p) => p.num === Number(m[1]))
-  return pt ? `考点${m[1]} ${pt.title}` : `考点${m[1]}`
+  const sec = ch?.sections.find((s) => s.num === parsed.sectionNum)
+  const pt = sec?.points.find((p) => p.num === parsed.pointNum)
+  return pt
+    ? `第${parsed.sectionNum}节 考点${parsed.pointNum} ${pt.title}`
+    : `考点${parsed.pointNum}`
 }

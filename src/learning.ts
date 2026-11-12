@@ -198,7 +198,10 @@ export function buildTodayQueue(
     id: string
     num: number
     title: string
-    sections: Array<{ points: Array<{ num: number; title: string; difficulty: string | null; hot: number | null }> }>
+    sections: Array<{
+      num: number
+      points: Array<{ num: number; title: string; difficulty: string | null; hot: number | null }>
+    }>
   }>,
   today = todayStr(),
 ): QueueItem[] {
@@ -208,7 +211,7 @@ export function buildTodayQueue(
   for (const ch of chapters) {
     for (const sec of ch.sections) {
       for (const p of sec.points) {
-        const pid = pointId(ch.id, p.num)
+        const pid = pointId(ch.id, sec.num, p.num)
         if (seen.has(pid)) continue
 
         const wrongItem = state.wrongBook[pid]
@@ -242,7 +245,7 @@ export function buildTodayQueue(
   for (const ch of chapters) {
     for (const sec of ch.sections) {
       for (const p of sec.points) {
-        const pid = pointId(ch.id, p.num)
+        const pid = pointId(ch.id, sec.num, p.num)
         if (seen.has(pid)) continue
         if (state.reviews[pid]) continue
         fresh.push({

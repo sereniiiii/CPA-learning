@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ChapterMeta, SubjectLibrary } from '../types'
+import { ChapterMeta, SubjectLibrary, pointId } from '../types'
 
 /**
  * 教材库视图：左侧目录树 + 右侧章节卡片。
@@ -131,7 +131,7 @@ function ChapterTree({
                 第{sec.num}节 {sec.title}
               </div>
               {sec.points.map((p) => {
-                const pid = `${meta.id}-p${String(p.num).padStart(2, '0')}`
+                const pid = pointId(meta.id, sec.num, p.num)
                 const active =
                   activePoint?.chapterId === meta.id && activePoint.pointNum === p.num
                 const m = masteryOf(pid)
@@ -259,7 +259,7 @@ function ChapterCard({
               </h4>
               <div className="point-grid" style={{ marginTop: 7 }}>
                 {sec.points.map((p) => {
-                  const pid = `${meta.id}-p${String(p.num).padStart(2, '0')}`
+                  const pid = pointId(meta.id, sec.num, p.num)
                   const m = masteryOf(pid)
                   return (
                     <button
