@@ -1,13 +1,6 @@
 import { useMemo } from 'react'
 import { QueueItem } from '../learning'
-import { ChapterMeta } from '../types'
-
-interface Props {
-  queue: QueueItem[]
-  chapters: ChapterMeta[]
-  onOpenPoint: (chapterId: string, pointNum: number) => void
-  onStart: () => void
-}
+import { TextbookIndex } from '../types'
 
 const REASON_LABEL: Record<QueueItem['reason'], string> = {
   due: '到期重测',
@@ -15,16 +8,24 @@ const REASON_LABEL: Record<QueueItem['reason'], string> = {
   new: '新内容',
 }
 
-export function TodayView({ queue, chapters, onOpenPoint, onStart }: Props) {
-  // chapters 用于校验队列来源（题目可能来自未展开的章）
-  void chapters
+export function TodayView({
+  queue,
+  index,
+  onOpenPoint,
+  onStart,
+}: {
+  queue: QueueItem[]
+  index: TextbookIndex | null
+  onOpenPoint: (chapterId: string, pointNum: number) => void
+  onStart: () => void
+}) {
   const counts = useMemo(() => {
     const c = { due: 0, wrong: 0, new: 0 }
     for (const q of queue) c[q.reason] += 1
     return c
   }, [queue])
 
-  // 按章分组展示（队列本身是交错的，这里只是展示归类）
+  // 按章分组展示（队列本身交错，这里只是视觉归类）
   const byChapter = useMemo(() => {
     const map = new Map<number, { title: string; items: QueueItem[] }>()
     for (const q of queue) {
@@ -35,6 +36,16 @@ export function TodayView({ queue, chapters, onOpenPoint, onStart }: Props) {
     }
     return [...map.entries()].sort((a, b) => a[0] - b[0])
   }, [queue])
+
+  // 进度统计
+  const stats = useMemo(() => {
+    if (!index) return { total: 0, done: 0 }
+    const total = index.chapters.reduce(
+      (n, c) => n + c.sections.reduce((m, s) => m + s.points.length, 0),
+      0,
+    )
+    return { total, done: 0 }
+  }, [index])
 
   if (queue.length === 0) {
     return (
@@ -49,17 +60,18 @@ export function TodayView({ queue, chapters, onOpenPoint, onStart }: Props) {
 
   return (
     <div className="today">
-      <header className="today-head">
+      <div className="today-head">
         <h1 className="today-title">今日</h1>
         <div className="today-counts">
           <span className="count-chip is-due">{counts.due} 到期</span>
           <span className="count-chip is-wrong">{counts.wrong} 错题</span>
           <span className="count-chip is-new">{counts.new} 新内容</span>
         </div>
-      </header>
+      </div>
 
       <p className="today-hint">
-        共 {queue.length} 个考点。建议一次做一个闭环（15–25 分钟）。
+        共 {queue.length} 个考点 · 全书 {stats.total} 个考点 ·
+        建议一次做一个闭环（15–25 分钟）
       </p>
 
       <button className="start-btn" onClick={onStart}>
@@ -82,6 +94,7 @@ export function TodayView({ queue, chapters, onOpenPoint, onStart }: Props) {
                   <span className={`reason-dot is-${q.reason}`} />
                   <span className="point-idx">{String(q.pointNum).padStart(2, '0')}</span>
                   <span className="point-name">{q.pointTitle}</span>
+                  {q.hot != null && <span className="badge badge-hot">热{q.hot}</span>}
                   <span className="point-reason">{REASON_LABEL[q.reason]}</span>
                   {q.overdue > 0 && (
                     <span className="badge badge-overdue">逾期{q.overdue}天</span>

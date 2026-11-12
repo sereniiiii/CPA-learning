@@ -42,9 +42,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).send(text)
       }
 
+      if (kind === 'subjectiveIndex') {
+        const text = await readFile('data/subjectives/index.json')
+        if (!text) return res.status(404).json({ error: '主观题集训未就绪' })
+        res.setHeader('Cache-Control', 'private, max-age=600')
+        return res.status(200).send(text)
+      }
+
+      if (kind === 'subjectiveTopic') {
+        const id = typeof req.query.id === 'string' ? req.query.id : ''
+        if (!/^topic\d{2}$/.test(id)) return res.status(400).json({ error: '非法的专题 ID' })
+        const text = await readFile(`data/subjectives/${id}.json`)
+        if (!text) return res.status(404).json({ error: '专题不存在' })
+        res.setHeader('Cache-Control', 'private, max-age=600')
+        return res.status(200).send(text)
+      }
+
       if (kind === 'shot') {
         const name = typeof req.query.name === 'string' ? req.query.name : ''
-        if (!/^[a-z]{2,3}-\d{4}\.jpg$/.test(name)) {
+        if (!/^[a-z]{2,4}-\d{4}\.jpg$/.test(name)) {
           return res.status(400).json({ error: '非法的截图名' })
         }
         const data = await readBinary(`data/shots/${name}`)

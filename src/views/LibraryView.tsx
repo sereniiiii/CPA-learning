@@ -1,100 +1,209 @@
-import { useEffect, useState } from 'react'
-import { Chapter, ChapterMeta, TextbookIndex } from '../types'
-import { learningApi } from '../api'
+import { useMemo } from 'react'
+import { ChapterMeta, TextbookIndex } from '../types'
 
-interface Props {
+/**
+ * 教材库视图：左侧目录树 + 右侧章节卡片。
+ * 目录树照抄教材结构（章 → 节 → 考点），不另造分类。
+ */
+export function LibraryView({
+  index,
+  activePoint,
+  onOpenPoint,
+  onOpenChapter,
+  openChapter,
+  masteryOf,
+  isDue,
+  isWrong,
+}: {
+  index: TextbookIndex | null
+  activePoint: { chapterId: string; pointNum: number } | null
   onOpenPoint: (chapterId: string, pointNum: number) => void
+  onOpenChapter: (chapterId: string) => void
+  openChapter: string | null
   masteryOf: (pid: string) => number
   isDue: (pid: string) => boolean
-}
-
-export function LibraryView({ onOpenPoint, masteryOf, isDue }: Props) {
-  const [index, setIndex] = useState<TextbookIndex | null>(null)
-  const [openChapter, setOpenChapter] = useState<string | null>(null)
-  const [detail, setDetail] = useState<Chapter | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState('')
-
-  useEffect(() => {
-    learningApi
-      .getIndex()
-      .then(setIndex)
-      .catch((e) => setErr(e instanceof Error ? e.message : '内容库加载失败'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    if (!openChapter) {
-      setDetail(null)
-      return
-    }
-    setDetail(null)
-    learningApi.getChapter(openChapter).then(setDetail).catch(() => {})
-  }, [openChapter])
-
-  if (loading) return <div className="view-loading">加载中…</div>
-  if (err) return <div className="view-loading is-error">{err}</div>
-  if (!index) return null
-
-  const totalPoints = index.chapters.reduce(
-    (n, c) => n + c.sections.reduce((m, s) => m + s.points.length, 0),
-    0,
-  )
+  isWrong: (pid: string) => boolean
+}) {
+  if (!index) {
+    return <div className="view-loading">内容库加载中…</div>
+  }
 
   return (
-    <div className="library">
-      <header className="library-head">
-        <div>
-          <h1 className="library-title">{index.meta.title}</h1>
-          <p className="library-sub">
-            {index.chapters.length} 章 · {totalPoints} 考点 · 源自 {index.meta.source}
-          </p>
+    <>
+      <div className="tree">
+        <div className="tree-head">
+          <p className="tree-title">教材目录</p>
+          <p className="tree-sub">{index.chapters.length} 章 · 20 个部分</p>
         </div>
-        <div className="library-ver">
-          <span>版本 {index.meta.version}</span>
-          <span>最后更新 {index.meta.generatedAt}</span>
+        <div className="tree-list">
+          {index.chapters.map((ch) => (
+            <ChapterTree
+              key={ch.id}
+              meta={ch}
+              expanded={openChapter === ch.id}
+              activePoint={activePoint}
+              onToggle={() => onOpenChapter(ch.id)}
+              onOpenPoint={onOpenPoint}
+              masteryOf={masteryOf}
+              isDue={isDue}
+              isWrong={isWrong}
+            />
+          ))}
         </div>
-      </header>
-
-      <div className="chapter-list">
-        {index.chapters.map((ch) => (
-          <ChapterBlock
-            key={ch.id}
-            meta={ch}
-            open={openChapter === ch.id}
-            detail={openChapter === ch.id ? detail : null}
-            onToggle={() => setOpenChapter(openChapter === ch.id ? null : ch.id)}
-            onOpenPoint={onOpenPoint}
-            masteryOf={masteryOf}
-            isDue={isDue}
-          />
-        ))}
       </div>
-    </div>
+
+      <div className="canvas">
+        <div className="library-head">
+          <div>
+            <h1 className="library-title">{index.meta.title}</h1>
+            <p className="library-sub">
+              源自 {index.meta.source}
+              <br />
+              内容以原书截图呈现 —— OCR 文字层不可信，涉及公式与数值的部分一律对照原书
+            </p>
+          </div>
+          <div className="library-ver">
+            <span>版本 {index.meta.version}</span>
+            <span>更新 {index.meta.generatedAt}</span>
+          </div>
+        </div>
+
+        <div className="chapter-list">
+          {index.chapters.map((ch) => (
+            <ChapterCard
+              key={ch.id}
+              meta={ch}
+              open={openChapter === ch.id}
+              onToggle={() => onOpenChapter(ch.id)}
+              onOpenPoint={onOpenPoint}
+              masteryOf={masteryOf}
+              isDue={isDue}
+              isWrong={isWrong}
+            />
+          ))}
+        </div>
+      </div>
+    </>
   )
 }
 
-function ChapterBlock({
+function ChapterTree({
   meta,
-  open,
-  detail,
+  expanded,
+  activePoint,
   onToggle,
   onOpenPoint,
   masteryOf,
   isDue,
+  isWrong,
 }: {
   meta: ChapterMeta
-  open: boolean
-  detail: Chapter | null
+  expanded: boolean
+  activePoint: { chapterId: string; pointNum: number } | null
   onToggle: () => void
   onOpenPoint: (chapterId: string, pointNum: number) => void
   masteryOf: (pid: string) => number
   isDue: (pid: string) => boolean
+  isWrong: (pid: string) => boolean
 }) {
-  const pointCount = meta.sections.reduce((n, s) => n + s.points.length, 0)
-  const dueCount = meta.sections
-    .flatMap((s) => s.points)
-    .filter((p) => isDue(`${meta.id}-p${String(p.num).padStart(2, '0')}`)).length
+  return (
+    <div>
+      <button
+        className={`tree-chapter${expanded ? ' is-active' : ''}`}
+        onClick={onToggle}
+      >
+        <span className="num">{meta.num}</span>
+        <span style={{ flex: 1, minWidth: 0 }}>{meta.title}</span>
+        {meta.info.difficulty && (
+          <span className={`mini-badge m-${meta.info.difficulty}`}>
+            {meta.info.difficulty}
+          </span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="tree-points">
+          {meta.sections.map((sec) => (
+            <div key={sec.num}>
+              <div className="tree-section">
+                第{sec.num}节 {sec.title}
+              </div>
+              {sec.points.map((p) => {
+                const pid = `${meta.id}-p${String(p.num).padStart(2, '0')}`
+                const active =
+                  activePoint?.chapterId === meta.id && activePoint.pointNum === p.num
+                const m = masteryOf(pid)
+                return (
+                  <button
+                    key={p.num}
+                    className={`tree-point${active ? ' is-active' : ''}`}
+                    onClick={() => onOpenPoint(meta.id, p.num)}
+                    title={p.title}
+                  >
+                    <span className="point-idx">{String(p.num).padStart(2, '0')}</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {p.title}
+                    </span>
+                    {isWrong(pid) && <span className="mini-badge m-wrong">错</span>}
+                    {!isWrong(pid) && isDue(pid) && (
+                      <span className="mini-badge m-due">复习</span>
+                    )}
+                    {p.hot != null && <span className="mini-badge m-hot">热{p.hot}</span>}
+                    {m >= 60 && <span className="mini-badge m-易">✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChapterCard({
+  meta,
+  open,
+  onToggle,
+  onOpenPoint,
+  masteryOf,
+  isDue,
+  isWrong,
+}: {
+  meta: ChapterMeta
+  open: boolean
+  onToggle: () => void
+  onOpenPoint: (chapterId: string, pointNum: number) => void
+  masteryOf: (pid: string) => number
+  isDue: (pid: string) => boolean
+  isWrong: (pid: string) => boolean
+}) {
+  const pointCount = useMemo(
+    () => meta.sections.reduce((n, s) => n + s.points.length, 0),
+    [meta],
+  )
+  const dueCount = useMemo(
+    () =>
+      meta.sections
+        .flatMap((s) => s.points)
+        .filter((p) => isDue(`${meta.id}-p${String(p.num).padStart(2, '0')}`)).length,
+    [meta, isDue],
+  )
+  const wrongCount = useMemo(
+    () =>
+      meta.sections
+        .flatMap((s) => s.points)
+        .filter((p) => isWrong(`${meta.id}-p${String(p.num).padStart(2, '0')}`)).length,
+    [meta, isWrong],
+  )
 
   return (
     <section className={`chapter${open ? ' is-open' : ''}`}>
@@ -102,15 +211,7 @@ function ChapterBlock({
         <span className="chapter-num">第 {meta.num} 章</span>
         <span className="chapter-title">{meta.title}</span>
         <span className="chapter-badges">
-          {meta.info.difficulty && (
-            <span className={`badge badge-diff is-${meta.info.difficulty}`}>{meta.info.difficulty}</span>
-          )}
-          {meta.info.studyHours != null && (
-            <span className="badge">{meta.info.studyHours}h</span>
-          )}
-          {meta.info.avgScore != null && (
-            <span className="badge">均分 {meta.info.avgScore}</span>
-          )}
+          {wrongCount > 0 && <span className="badge badge-overdue">错 {wrongCount}</span>}
           {dueCount > 0 && <span className="badge badge-due">待复习 {dueCount}</span>}
           <span className="badge">{pointCount} 考点</span>
         </span>
@@ -120,6 +221,23 @@ function ChapterBlock({
       {open && (
         <div className="chapter-body">
           {meta.info.guide && <p className="chapter-guide">{meta.info.guide}</p>}
+
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+            {meta.info.difficulty && (
+              <span className={`badge badge-diff is-${meta.info.difficulty}`}>
+                难度 {meta.info.difficulty}
+              </span>
+            )}
+            {meta.info.studyHours != null && (
+              <span className="badge badge-blue">建议 {meta.info.studyHours}h</span>
+            )}
+            {meta.info.examTypes && (
+              <span className="badge">题型 {meta.info.examTypes}</span>
+            )}
+            {meta.info.avgScore != null && (
+              <span className="badge">近5年均分 {meta.info.avgScore}</span>
+            )}
+          </div>
 
           {meta.info.changes && meta.info.changes.length > 0 && (
             <div className="chapter-changes">
@@ -132,57 +250,40 @@ function ChapterBlock({
             </div>
           )}
 
-          {detail ? (
-            <>
-              {detail.sections.map((sec) => (
-                <div key={sec.num} className="section">
-                  <h4 className="section-title">
-                    第{sec.num}节 {sec.title}
-                  </h4>
-                  <div className="point-grid">
-                    {sec.points.map((p) => {
-                      const pid = `${meta.id}-p${String(p.num).padStart(2, '0')}`
-                      const m = masteryOf(pid)
-                      return (
-                        <button
-                          key={p.num}
-                          className="point-chip"
-                          onClick={() => onOpenPoint(meta.id, p.num)}
-                        >
-                          <span className="point-idx">{String(p.num).padStart(2, '0')}</span>
-                          <span className="point-name">{p.title}</span>
-                          {p.difficulty && (
-                            <span className={`badge badge-diff is-${p.difficulty}`}>{p.difficulty}</span>
-                          )}
-                          {p.hot != null && (
-                            <span className="badge badge-hot">热点{p.hot}</span>
-                          )}
-                          {m > 0 && (
-                            <span className="point-mastery" style={{ width: `${m}%` }} />
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-
-              {detail.exercises.length > 0 && (
-                <div className="section">
-                  <h4 className="section-title">同步习题（章末综合）</h4>
-                  <p className="muted">
-                    来自 {detail.exercises[0].source.volume} · PDF 第{' '}
-                    {detail.exercises[0].source.pdfPage} 页起，共 {detail.exercises.length} 页
-                  </p>
-                  <p className="muted small">
-                    习题原文含大量数值与公式，OCR 文字不可信 —— 请对照原书使用。
-                  </p>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="view-loading is-inline">加载章节详情…</div>
-          )}
+          {meta.sections.map((sec) => (
+            <div key={sec.num} className="section">
+              <h4 className="section-title">
+                第{sec.num}节 {sec.title}
+              </h4>
+              <div className="point-grid" style={{ marginTop: 7 }}>
+                {sec.points.map((p) => {
+                  const pid = `${meta.id}-p${String(p.num).padStart(2, '0')}`
+                  const m = masteryOf(pid)
+                  return (
+                    <button
+                      key={p.num}
+                      className="point-chip"
+                      onClick={() => onOpenPoint(meta.id, p.num)}
+                    >
+                      <span className="point-idx">{String(p.num).padStart(2, '0')}</span>
+                      <span className="point-name">{p.title}</span>
+                      {p.difficulty && (
+                        <span className={`badge badge-diff is-${p.difficulty}`}>
+                          {p.difficulty}
+                        </span>
+                      )}
+                      {p.hot != null && (
+                        <span className="badge badge-hot">热{p.hot}</span>
+                      )}
+                      {m > 0 && (
+                        <span className="point-mastery" style={{ width: `${m}%` }} />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </section>

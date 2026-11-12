@@ -14,6 +14,7 @@ export interface PointMeta {
   difficulty: string | null
   hot: number | null
   exampleCount: number
+  render: 'text' | 'screenshot'
 }
 
 export interface SectionMeta {
@@ -26,7 +27,7 @@ export interface ChapterInfo {
   difficulty: string | null
   studyHours: number | null
   examTypes: string | null
-  avgScore: number | null
+  avgScore: string | null
   guide: string | null
   changes: string[] | null
 }
@@ -91,7 +92,12 @@ export interface Chapter {
   title: string
   volume: string
   info: ChapterInfo
-  pointsFramework: Array<{ name: string; difficulty: string | null; hot: number | null; section: string }>
+  pointsFramework: Array<{
+    name: string
+    difficulty: string | null
+    hot: number | null
+    section: string
+  }>
   sections: Section[]
   exercises: Array<{ source: SourceRef; text: string; status: string }>
   pdfPages: number[]
@@ -141,11 +147,86 @@ export interface WrongItem {
   selfRating?: 'none' | 'partial' | 'correct' | null
 }
 
+/* ---------- 用户补充层（与教材原文分离） ---------- */
+
+/**
+ * 用户对教材内容的修改与补充。
+ *
+ * 设计要点：**不改教材原文**，而是用 overlay 覆盖层保存用户的编辑。
+ * 好处：
+ *   1. 教材原文始终可回溯、可重新解析、可与用户修改对照
+ *   2. 导出时能区分「教材原文」与「你的修改」
+ *   3. 重新抽取教材不会丢用户数据（overlay 按 ID 匹配）
+ */
+export interface UserOverlay {
+  /** 覆盖的教材原文（仅在用户显式改写时存在） */
+  title?: string
+  body?: string
+  /** 用户自己的解析、思路、易错点 */
+  notes?: string
+  /** 用户记的答案 */
+  answer?: string
+  /** 用户记的卡点 */
+  blocker?: string
+  /** 是否已按原书核对 */
+  verified?: boolean
+  updatedAt: string
+}
+
+/** 用户自加的题目 */
+export interface UserQuestion {
+  id: string
+  /** 归属考点 */
+  pointId: string
+  /** 所属章节 */
+  chapterId: string
+  chapterNum: number
+  type: '单选题' | '多选题' | '计算分析题' | '综合题'
+  stem: string
+  options: string[]
+  answer: string
+  analysis: string
+  /** 来源：手录 or 从截图 OCR */
+  origin: 'manual' | 'ocr'
+  createdAt: string
+  updatedAt: string
+}
+
+/** 主观题训练记录 */
+export interface SubjectiveNote {
+  /** 专题 ID */
+  topicId: string
+  topicTitle: string
+  /** 手写训练正文（用户写的过程、公式、结论） */
+  content: string
+  /** 自评档位 */
+  rating: 'none' | 'partial' | 'correct'
+  updatedAt: string
+}
+
 export interface LearningState {
   reviews: Record<string, ReviewState>
   wrongBook: Record<string, WrongItem>
   /** 主观题自评记录 */
   subjective: Record<string, 'none' | 'partial' | 'correct'>
+  updatedAt: string
+}
+
+/** 用户数据（与学习状态一起同步到云端） */
+export interface UserData {
+  /** 教材内容覆盖层：key = 考点ID */
+  overlays: Record<string, UserOverlay>
+  /** 用户自加题目 */
+  questions: UserQuestion[]
+  /** 主观题训练记录 */
+  subjectiveNotes: Record<string, SubjectiveNote>
+  /** 主观题专题（从下册第三部分解析） */
+  subjectiveTopics: Array<{
+    id: string
+    num: number
+    title: string
+    source: SourceRef
+  }>
   updatedAt: string
 }
 
@@ -156,7 +237,20 @@ export const EMPTY_LEARNING: LearningState = {
   updatedAt: '',
 }
 
+export const EMPTY_USER_DATA: UserData = {
+  overlays: {},
+  questions: [],
+  subjectiveNotes: {},
+  subjectiveTopics: [],
+  updatedAt: '',
+}
+
 /** 考点唯一 ID */
 export function pointId(chapterId: string, pointNum: number): string {
   return `${chapterId}-p${String(pointNum).padStart(2, '0')}`
+}
+
+/** 例题唯一 ID */
+export function exampleId(chapterId: string, pointNum: number, exNo: number): string {
+  return `${chapterId}-p${String(pointNum).padStart(2, '0')}-e${exNo}`
 }

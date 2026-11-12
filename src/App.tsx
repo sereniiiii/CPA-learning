@@ -14,30 +14,26 @@ import {
   savePage,
 } from './api'
 import { buildTodayQueue, currentMastery, isDue, todayStr } from './learning'
-import {
-  EMPTY_LEARNING,
-  LearningState,
-  PageMeta,
-  TextbookIndex,
-} from './types'
+import { PageMeta, TextbookIndex } from './types'
+import { useCloudSync } from './useCloudSync'
 import { LibraryView } from './views/LibraryView'
 import { TodayView } from './views/TodayView'
 import { PointView } from './views/PointView'
+import { SubjectiveView } from './views/SubjectiveView'
 import { ArchiveView, ReviewView, WrongBookView } from './views/ReviewView'
 import { MyNotes } from './views/MyNotes'
 
-type Tab = 'today' | 'library' | 'review' | 'wrong' | 'archive' | 'notes'
+type Tab = 'today' | 'library' | 'subjective' | 'review' | 'wrong' | 'archive' | 'notes'
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'today', label: '今日' },
-  { id: 'library', label: '库' },
-  { id: 'review', label: '复习' },
-  { id: 'wrong', label: '错题本' },
-  { id: 'archive', label: '归档' },
-  { id: 'notes', label: '我的笔记' },
+const TABS: Array<{ id: Tab; label: string; short: string }> = [
+  { id: 'today', label: '今日', short: '今' },
+  { id: 'library', label: '教材库', short: '库' },
+  { id: 'subjective', label: '主观题', short: '主' },
+  { id: 'review', label: '复习', short: '复' },
+  { id: 'wrong', label: '错题本', short: '错' },
+  { id: 'archive', label: '归档', short: '归' },
+  { id: 'notes', label: '我的笔记', short: '记' },
 ]
-
-const STATE_KEY = 'cpa-learning-state'
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
@@ -47,27 +43,24 @@ export default function App() {
 
   const [tab, setTab] = useState<Tab>('today')
   const [index, setIndex] = useState<TextbookIndex | null>(null)
-  const [learnState, setLearnState] = useState<LearningState>(EMPTY_LEARNING)
-  const [openPoint, setOpenPoint] = useState<{ chapterId: string; pointNum: number } | null>(null)
+  const [openPoint, setOpenPoint] = useState<{ chapterId: string; pointNum: number } | null>(
+    null,
+  )
+  const [openChapter, setOpenChapter] = useState<string | null>(null)
+
   const [myNotes, setMyNotes] = useState<PageMeta[]>([])
   const [activeNote, setActiveNote] = useState<PageMeta | null>(null)
   const [noteContent, setNoteContent] = useState('')
   const [noteTitle, setNoteTitle] = useState('')
   const [dirty, setDirty] = useState(false)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const saveTimer = useRef<number | null>(null)
+
+  const sync = useCloudSync(authed === true)
+  const { learning, userData, setLearning, setUserData } = sync
 
   /* ---------- 启动 ---------- */
   useEffect(() => {
     checkSession().then(setAuthed)
-    const saved = localStorage.getItem(STATE_KEY)
-    if (saved) {
-      try {
-        setLearnState(JSON.parse(saved) as LearningState)
-      } catch {
-        /* 用空状态 */
-      }
-    }
   }, [])
 
   useEffect(() => {
@@ -76,30 +69,36 @@ export default function App() {
     listPages().then(setMyNotes).catch(() => {})
   }, [authed])
 
-  // 学习进度落本地（换设备时可通过导出带走）
-  useEffect(() => {
-    if (!authed) return
-    localStorage.setItem(STATE_KEY, JSON.stringify(learnState))
-  }, [learnState, authed])
-
-  const updateState = useCallback((s: LearningState) => setLearnState(s), [])
-
   /* ---------- 队列 ---------- */
   const queue = useMemo(() => {
     if (!index) return []
-    return buildTodayQueue(learnState, index.chapters, todayStr())
-  }, [index, learnState])
+    return buildTodayQueue(learning, index.chapters, todayStr())
+  }, [index, learning])
 
   const masteryOf = useCallback(
-    (pid: string) => currentMastery(learnState, pid, todayStr()),
-    [learnState],
+    (pid: string) => currentMastery(learning, pid, todayStr()),
+    [learning],
   )
-  const dueOf = useCallback(
-    (pid: string) => isDue(learnState, pid, todayStr()),
-    [learnState],
-  )
+  const dueOf = useCallback((pid: string) => isDue(learning, pid, todayStr()), [learning])
+  const wrongOf = useCallback((pid: string) => Boolean(learning.wrongBook[pid]), [learning])
 
   /* ---------- 我的笔记 ---------- */
+  const flush = async () => {
+    if (!activeNote) return
+    try {
+      await savePage(activeNote.id, noteTitle, noteContent)
+      setDirty(false)
+    } catch {
+      /* 静默失败，下一次输入会重试 */
+    }
+  }
+
+  const scheduleSave = () => {
+    setDirty(true)
+    if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => void flush(), 1200)
+  }
+
   const openNote = async (p: PageMeta) => {
     if (dirty) await flush()
     const { content, meta } = await getPage(p.id)
@@ -107,26 +106,6 @@ export default function App() {
     setNoteTitle(meta.title)
     setNoteContent(content)
     setDirty(false)
-  }
-
-  const flush = async () => {
-    if (!activeNote) return
-    setSaveState('saving')
-    try {
-      await savePage(activeNote.id, noteTitle, noteContent)
-      setDirty(false)
-      setSaveState('saved')
-      setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 2000)
-    } catch {
-      setSaveState('error')
-    }
-  }
-
-  const scheduleSave = () => {
-    setDirty(true)
-    setSaveState('idle')
-    if (saveTimer.current) window.clearTimeout(saveTimer.current)
-    saveTimer.current = window.setTimeout(() => flush(), 1200)
   }
 
   const createNote = async () => {
@@ -149,9 +128,13 @@ export default function App() {
   const doExport = async () => {
     try {
       const bundle = await exportAll()
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-        type: 'application/json',
-      })
+      // 把学习进度与用户数据一并带出去
+      const full = {
+        ...bundle,
+        learning,
+        userData,
+      }
+      const blob = new Blob([JSON.stringify(full, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -160,8 +143,8 @@ export default function App() {
       a.click()
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch {
-      setSaveState('error')
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -170,16 +153,21 @@ export default function App() {
     e.target.value = ''
     if (!file) return
     try {
-      const bundle = JSON.parse(await file.text()) as ExportBundle
+      const data = JSON.parse(await file.text()) as ExportBundle & {
+        learning?: typeof learning
+        userData?: typeof userData
+      }
       const mode = window.confirm(
-        `导入 ${bundle.pages?.length ?? 0} 篇笔记。\n\n确定 = 合并\n取消 = 完全还原`,
+        `导入 ${data.pages?.length ?? 0} 篇笔记。\n\n确定 = 合并\n取消 = 完全还原`,
       )
         ? 'merge'
         : 'replace'
-      await importAll(bundle, mode)
+      await importAll(data, mode)
+      if (data.learning) setLearning(data.learning)
+      if (data.userData) setUserData(data.userData)
       setMyNotes(await listPages())
-    } catch {
-      setSaveState('error')
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -206,14 +194,14 @@ export default function App() {
       <div className="login-screen">
         <form className="login-card" onSubmit={handleLogin}>
           <h1 className="login-title">CPA Learning</h1>
-          <p className="login-sub">请输入访问口令</p>
+          <p className="login-sub">2026 注会 · 财务成本管理</p>
           <input
             className="login-input"
             type="password"
             value={password}
             autoFocus
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="口令"
+            placeholder="访问口令"
           />
           {authError && <p className="login-error">{authError}</p>}
           <button className="login-btn" type="submit" disabled={loggingIn}>
@@ -243,38 +231,56 @@ export default function App() {
                 setTab(t.id)
                 setOpenPoint(null)
               }}
+              title={t.label}
             >
-              {t.label}
+              <span className="tab-text">{t.label}</span>
               {t.id === 'today' && queue.length > 0 && (
                 <span className="tab-badge">{queue.length}</span>
               )}
-              {t.id === 'wrong' && Object.keys(learnState.wrongBook).length > 0 && (
-                <span className="tab-badge">
-                  {Object.keys(learnState.wrongBook).length}
-                </span>
+              {t.id === 'wrong' && Object.keys(learning.wrongBook).length > 0 && (
+                <span className="tab-badge">{Object.keys(learning.wrongBook).length}</span>
               )}
+              {t.id === 'subjective' &&
+                Object.keys(userData.subjectiveNotes).filter(
+                  (k) => userData.subjectiveNotes[k].rating !== 'none',
+                ).length > 0 && (
+                  <span className="tab-badge">
+                    {
+                      Object.keys(userData.subjectiveNotes).filter(
+                        (k) => userData.subjectiveNotes[k].rating !== 'none',
+                      ).length
+                    }
+                  </span>
+                )}
             </button>
           ))}
         </nav>
 
         <div className="sidebar-foot">
           <div className="foot-row">
-            {saveState !== 'idle' && (
-              <span className={`save-status is-${saveState}`}>
-                {saveState === 'saving'
-                  ? '保存中'
-                  : saveState === 'saved'
-                    ? '已保存'
-                    : '保存失败'}
-              </span>
-            )}
+            <span className="save-status">
+              {sync.status === 'saving'
+                ? '同步中'
+                : sync.status === 'saved'
+                  ? '已同步'
+                  : sync.status === 'error'
+                    ? '同步失败'
+                    : sync.status === 'offline'
+                      ? '离线（本地）'
+                      : ''}
+            </span>
             <div className="data-tools">
               <button className="tool-btn" onClick={doExport} title="导出全部数据为 JSON">
                 导出
               </button>
               <label className="tool-btn" title="从 JSON 恢复">
                 导入
-                <input type="file" accept="application/json,.json" hidden onChange={doImport} />
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  hidden
+                  onChange={doImport}
+                />
               </label>
             </div>
           </div>
@@ -283,36 +289,53 @@ export default function App() {
 
       <main className="main">
         {openPoint ? (
-          <PointView
-            chapterId={openPoint.chapterId}
-            pointNum={openPoint.pointNum}
-            state={learnState}
-            onStateChange={updateState}
-            onBack={() => setOpenPoint(null)}
-            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
-          />
-        ) : tab === 'today' ? (
-          <TodayView
-            queue={queue}
-            chapters={index?.chapters ?? []}
-            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
-            onStart={() => {
-              const first = queue[0]
-              if (first) setOpenPoint({ chapterId: first.chapterId, pointNum: first.pointNum })
-            }}
-          />
+          <div className="canvas">
+            <PointView
+              chapterId={openPoint.chapterId}
+              pointNum={openPoint.pointNum}
+              state={learning}
+              userData={userData}
+              onStateChange={setLearning}
+              onUserDataChange={setUserData}
+              onBack={() => setOpenPoint(null)}
+              onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+            />
+          </div>
         ) : tab === 'library' ? (
-          <LibraryView
-            onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
-            masteryOf={masteryOf}
-            isDue={dueOf}
-          />
+          <div className="split">
+            <LibraryView
+              index={index}
+              activePoint={openPoint}
+              openChapter={openChapter}
+              onOpenChapter={(id) => setOpenChapter(openChapter === id ? null : id)}
+              onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+              masteryOf={masteryOf}
+              isDue={dueOf}
+              isWrong={wrongOf}
+            />
+          </div>
+        ) : tab === 'subjective' ? (
+          <div className="split">
+            <SubjectiveView userData={userData} onUserDataChange={setUserData} />
+          </div>
+        ) : tab === 'today' ? (
+          <div className="canvas">
+            <TodayView
+              queue={queue}
+              index={index}
+              onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })}
+              onStart={() => {
+                const first = queue[0]
+                if (first) setOpenPoint({ chapterId: first.chapterId, pointNum: first.pointNum })
+              }}
+            />
+          </div>
         ) : tab === 'review' ? (
-          <ReviewView state={learnState} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
+          <ReviewView state={learning} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
         ) : tab === 'wrong' ? (
-          <WrongBookView state={learnState} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
+          <WrongBookView state={learning} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
         ) : tab === 'archive' ? (
-          <ArchiveView state={learnState} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
+          <ArchiveView state={learning} onOpenPoint={(c, p) => setOpenPoint({ chapterId: c, pointNum: p })} />
         ) : (
           <MyNotes
             notes={myNotes}
@@ -324,7 +347,7 @@ export default function App() {
             onCreate={createNote}
             onRemove={removeNote}
             onBack={() => {
-              flush()
+              void flush()
               setActiveNote(null)
             }}
             onTitleChange={(v) => {

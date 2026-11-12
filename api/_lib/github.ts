@@ -329,6 +329,18 @@ export async function deletePageRecord(id: string): Promise<void> {
   )
 }
 
+/**
+ * 写任意文件到 data 分支（用于学习进度、用户数据等）。
+ * 每次写入 = 一个 commit，git 历史即备份。
+ */
+export async function writeFile(
+  path: string,
+  content: string,
+  message: string,
+): Promise<void> {
+  await commitFiles([{ path, content }], message)
+}
+
 export async function writeAsset(name: string, data: Buffer): Promise<void> {
   await commitFiles([{ path: `data/assets/${name}`, content: data }], `上传图片：${name}`)
 }

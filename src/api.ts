@@ -111,6 +111,26 @@ export const learningApi = {
       }>
     }>('/api/textbook?kind=subjectives'),
 
+  getSubjectiveIndex: () =>
+    request<{
+      topics: Array<{
+        id: string
+        num: number
+        title: string
+        source: { volume: string; pdfPage: number; printPage: number }
+        pageCount: number
+      }>
+    }>('/api/textbook?kind=subjectiveIndex'),
+
+  getSubjectiveTopic: (id: string) =>
+    request<{
+      id: string
+      num: number
+      title: string
+      source: { volume: string; pdfPage: number; printPage: number }
+      pages: Array<{ pdfPage: number; text: string }>
+    }>(`/api/textbook?kind=subjectiveTopic&id=${encodeURIComponent(id)}`),
+
   shotUrl: (name: string) => `/api/textbook?kind=shot&name=${encodeURIComponent(name)}`,
 }
 
