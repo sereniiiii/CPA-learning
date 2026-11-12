@@ -1,0 +1,86 @@
+name: 备份学习内容
+
+on:
+  schedule:
+    # 每天 UTC 15:00（北京时间 23:00）跑一次
+    - cron: '0 15 * * *'
+  workflow_dispatch: # 手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出 data 分支
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          fetch-depth: 1
+
+      - name: 打包内容
+        run: |
+          tar czf study-data-$(date +%Y%m%d-%H%M%S).tar.gz data/
+          ls -lh study-data-*.tar.gz
+
+      - name: 上传腾讯云 COS
+        if: ${{ secrets.COS_SECRET_ID != '' }}
+        env:
+          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+          COS_REGION: ${{ secrets.COS_REGION }}
+          COS_BUCKET: ${{ secrets.COS_BUCKET }}
+        run: |
+          if [ -z "$COS_SECRET_ID" ] || [ -z "$COS_SECRET_KEY" ] || [ -z "$COS_BUCKET" ]; then
+            echo "未配置 COS 密钥，跳过上传"
+            exit 0
+          fi
+          pip install --quiet cos-python-sdk-v5
+          python - <<'PY'
+          import os, glob
+          from qcloud_cos import CosConfig, CosS3Client
+
+          cfg = CosConfig(
+              Region=os.environ["COS_REGION"],
+              SecretId=os.environ["COS_SECRET_ID"],
+              SecretKey=os.environ["COS_SECRET_KEY"],
+          )
+          client = CosS3Client(cfg)
+          bucket = os.environ["COS_BUCKET"]
+          prefix = os.environ.get("COS_PREFIX", "cpa-learning")
+
+          files = sorted(glob.glob("study-data-*.tar.gz"))
+          if not files:
+              raise SystemExit("没有找到备份包")
+
+          # 只保留最近 14 份，避免无限堆积
+          for old in files[:-14]:
+              key = f"{prefix}/{old}"
+              client.delete_object(Bucket=bucket, Key=key)
+              print(f"删除旧备份: {key}")
+
+          for f in files:
+              key = f"{prefix}/{os.path.basename(f)}"
+              client.upload_file(Bucket=bucket, Key=key, LocalFilePath=f)
+              print(f"已上传: {key}")
+          PY
+
+      - name: 存为 Release 附件（本地兜底）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: backup-${{ github.run_number }}
+          name: 学习内容备份 ${{ github.run_number }}
+          body: |
+            学习内容自动快照。
+            解压后 `data/` 目录即笔记内容与图片。
+          files: study-data-*.tar.gz
+          prerelease: true
+
+      - name: 清理旧 Release
+        run: |
+          gh release list --limit 20 --json tagName --jq '.[10:][].tagName' | while read tag; do
+            gh release delete "$tag" --yes --cleanup-tag || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
