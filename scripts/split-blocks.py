@@ -290,7 +290,19 @@ def main():
                 page_answers[f"{vol}-{page_seq:04d}"] = {str(k): v for k, v in pa.items()}
 
             bounds = find_boundaries(items)
-            stats["blocks"] += len(bounds) + (1 if bounds else 0)
+            if not bounds:
+                # 这一页没识别到任何切分点 —— 但**内容不能丢**。
+                # 经济法下册有一百多页是纯正文（没有考点小标题、
+                # 没有例题编号），不切就等于这部分内容从系统里消失。
+                # 所以按整页切一块，kind 用 label（归属到上一个考点）。
+                bounds = [{
+                    "y": CONTENT_TOP,
+                    "size": 12.0,
+                    "kind": "label",
+                    "label": "本页内容",
+                    "num": None,
+                }]
+            stats["blocks"] += len(bounds)
             full_png = None
             full_page = None
             page_px = None

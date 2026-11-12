@@ -488,12 +488,30 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
         cur_point = point
         return point
 
+    # 预扫描：标出「考点框架页」。
+    #
+    # 框架页上会一次性列出本章所有考点（每个都是「考点名 5年热点N次」格式），
+    # 正文页通常只有 1 个。不区分的话，框架页的考点会被当成正文考点
+    # 建一遍，正文再建一遍 → 考点重复、编号乱序（实测出现 1,24,19,17…）。
+    framework_pages = set()
+    for p in pages:
+        n = 0
+        for line in strip_running(p["text"]).split("\n"):
+            if HOT_POINT.match(line.strip()) or HOT_POINT_LOOSE.match(line.strip()):
+                n += 1
+        if n >= 3:
+            framework_pages.add(p["seq"])
+
     for p in pages:
         t = strip_running(p["text"])
         if not t:
             continue
         seq = p["seq"]
         print_page = extract_print_page(p["text"], seq)
+
+        # 框架页的考点由 parse_framework 统一处理，这里跳过
+        if seq in framework_pages:
+            continue
 
         lines = t.split("\n")
         i = 0
@@ -518,7 +536,14 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
                 if pm:
                     name = name[pm.end():].strip(" ）)】]") or name
                 hot_m = re.search(r"5\s*年\s*热\s*点\s*([\d|丨l]+)", s)
-                hot = int(re.sub(r"\D", "", hot_m.group(1))) if hot_m else None
+                # OCR 可能把数字认成纯符号（| 丨 l），
+                # 去掉非数字后可能是空串 —— int('') 会抛异常，
+                # 而异常会让整章解析失败（之前只剩 4 章就是这个原因）。
+                hot = None
+                if hot_m:
+                    digits = re.sub(r"\D", "", hot_m.group(1))
+                    if digits:
+                        hot = int(digits)
                 seq_no += 1
                 ensure_point(seq_no, name, None, hot, seq, print_page)
                 i += 1

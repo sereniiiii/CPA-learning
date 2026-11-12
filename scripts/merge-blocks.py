@@ -38,7 +38,7 @@ def main():
     # 块按 (册, 页, 序) 排序
     def block_key(b):
         # 文件名格式：<kind>-<vol>-<page>-<idx>.png
-        parts = b["file"].split("/")[-1].replace(".png", "").split("-")
+        parts = b["file"].split("/")[-1].rsplit(".", 1)[0].split("-")
         return (parts[1], int(parts[2]), int(parts[3]))
 
     blocks.sort(key=block_key)
@@ -144,7 +144,7 @@ def main():
     for b in blocks:
         if b["kind"] != "point":
             continue
-        parts = b["file"].split("/")[-1].replace(".png", "").split("-")
+        parts = b["file"].split("/")[-1].rsplit(".", 1)[0].split("-")
         vol, page = parts[1], int(parts[2])
         cid = find_chapter(vol, page)
         if not cid:
@@ -156,7 +156,7 @@ def main():
     used_keys = set()
     cur_key = None
     for b in blocks:
-        parts = b["file"].split("/")[-1].replace(".png", "").split("-")
+        parts = b["file"].split("/")[-1].rsplit(".", 1)[0].split("-")
         vol, page = parts[1], int(parts[2])
 
         if b["kind"] == "point":

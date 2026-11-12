@@ -81,12 +81,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (kind === 'shot') {
         const name = typeof req.query.name === 'string' ? req.query.name : ''
-        if (!/^[a-z0-9_\-\u4e00-\u9fff]{1,80}\.png$/.test(name)) {
+        // .png 与 .jpg 都支持 —— 教材块图统一转成 JPEG q90（体积省 76%）
+        if (!/^[a-z0-9_\-\u4e00-\u9fff]{1,80}\.(png|jpg)$/.test(name)) {
           return res.status(400).json({ error: '非法的图片名' })
         }
         const data = await readBinary(`data/subjects/${subject}/blocks/${name}`)
         if (!data) return res.status(404).json({ error: '截图不存在' })
-        res.setHeader('Content-Type', 'image/png')
+        res.setHeader('Content-Type', name.endsWith('.jpg') ? 'image/jpeg' : 'image/png')
         res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
         return res.status(200).send(data)
       }
