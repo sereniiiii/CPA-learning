@@ -13,6 +13,7 @@ import { learningApi } from '../api'
 import { CausePicker } from './ReviewView'
 import { OverlayEditor, QuestionEditor } from './EditPanel'
 import { PageBrowser } from './PageBrowser'
+import { ExerciseWorkbench } from './ExerciseWorkbench'
 
 interface Props {
   chapterId: string
@@ -278,18 +279,14 @@ export function PointView({
         <section className="examples">
           <h2 className="section-title">同步习题（{chapter.exercises.length} 页）</h2>
           <p className="muted small">
-            章末跨考点综合检验，与上面的随讲随练不同 —— 按页查看原书
+            章末跨考点综合检验 —— 左边看题，右边写解答
           </p>
-          <div className="point-grid" style={{ marginTop: 8 }}>
-            {chapter.exercises.map((ex) => (
-              <PageChip
-                key={ex.source.pdfPage}
-                volume={ex.source.volume}
-                page={ex.source.pdfPage}
-                printPage={ex.source.printPage}
-              />
-            ))}
-          </div>
+          <ExerciseWorkbench
+            chapterId={chapter.id}
+            pages={chapter.exercises}
+            userData={userData}
+            onUserDataChange={onUserDataChange}
+          />
         </section>
       )}
 
@@ -356,37 +353,6 @@ export function PointView({
         </button>
       </nav>
     </div>
-  )
-}
-
-/** 章末习题页的入口 —— 点开看原书那一页 */
-function PageChip({
-  volume,
-  page,
-  printPage,
-}: {
-  volume: string
-  page: number
-  printPage: number
-}) {
-  const [open, setOpen] = useState(false)
-  const vol = { 上册: 'up', 中册: 'mid', 下册: 'down' }[volume] ?? 'up'
-  const name = `${vol}-${String(page).padStart(4, '0')}.jpg`
-
-  return (
-    <>
-      <button className="point-chip" onClick={() => setOpen(true)}>
-        <span className="point-name">
-          {volume} 印刷页 {printPage}
-        </span>
-        <span className="point-reason">PDF 第 {page} 页</span>
-      </button>
-      {open && (
-        <div className="lightbox" onClick={() => setOpen(false)}>
-          <img src={learningApi.shotUrl(name)} alt="" />
-        </div>
-      )}
-    </>
   )
 }
 

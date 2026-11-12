@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { learningApi } from '../api'
 import { UserData } from '../types'
+import { RichEditor } from '../editor/Editor'
 
 interface Topic {
   id: string
@@ -175,6 +176,9 @@ function SubjectiveDetail({
 }) {
   const [draft, setDraft] = useState(note?.content ?? '')
   const [page, setPage] = useState(topic.pages[0]?.pdfPage ?? topic.source.pdfPage)
+  const [rating, setRating] = useState<'none' | 'partial' | 'correct'>(
+    note?.rating ?? 'none',
+  )
 
   useEffect(() => {
     setDraft(note?.content ?? '')
@@ -236,29 +240,41 @@ function SubjectiveDetail({
         <p className="muted small">
           手写一遍解题过程：条件、公式、步骤、结论。写完再看原书解析，对照差在哪。
         </p>
-        <textarea
-          className="overlay-textarea"
-          style={{ minHeight: 170, marginTop: 8 }}
-          value={draft}
-          placeholder="在这里写下你的解题过程……"
-          onChange={(e) => setDraft(e.target.value)}
+        <RichEditor
+          compact
+          content={draft}
+          placeholder="在这里写下你的解题过程：条件、公式、步骤、结论…"
+          onSave={() => onSave(draft, rating)}
+          onChange={(json) => setDraft(JSON.stringify(json))}
         />
 
         <div className="field-label">自评（先写再对，直接看答案等于没练）</div>
         <div className="answer-row">
           <button
             className="answer-btn is-correct"
-            onClick={() => onSave(draft, 'correct')}
+            onClick={() => {
+              setRating('correct')
+              onSave(draft, 'correct')
+            }}
           >
             完整正确
           </button>
           <button
             className="answer-btn is-partial"
-            onClick={() => onSave(draft, 'partial')}
+            onClick={() => {
+              setRating('partial')
+              onSave(draft, 'partial')
+            }}
           >
             写出部分步骤
           </button>
-          <button className="answer-btn is-wrong" onClick={() => onSave(draft, 'none')}>
+          <button
+            className="answer-btn is-wrong"
+            onClick={() => {
+              setRating('none')
+              onSave(draft, 'none')
+            }}
+          >
             完全没思路
           </button>
         </div>

@@ -6,6 +6,9 @@ import Link from '@tiptap/extension-link'
 import { TaskList, TaskItem } from '@tiptap/extension-list'
 import { TableKit } from '@tiptap/extension-table'
 import TextAlign from '@tiptap/extension-text-align'
+import Highlight from '@tiptap/extension-highlight'
+import { TextStyle } from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-color'
 import { Placeholder, CharacterCount } from '@tiptap/extensions'
 import type { JSONContent } from '@tiptap/core'
 import { Toolbar } from './Toolbar'
@@ -16,9 +19,20 @@ interface EditorProps {
   onChange: (json: JSONContent) => void
   onSave: () => void
   readOnly?: boolean
+  /** 占位提示语，不同场景给不同引导 */
+  placeholder?: string
+  /** 紧凑模式：用于习题答题区这类嵌入场景 */
+  compact?: boolean
 }
 
-export function RichEditor({ content, onChange, onSave, readOnly }: EditorProps) {
+export function RichEditor({
+  content,
+  onChange,
+  onSave,
+  readOnly,
+  placeholder = '开始写点什么…',
+  compact = false,
+}: EditorProps) {
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -49,8 +63,13 @@ export function RichEditor({ content, onChange, onSave, readOnly }: EditorProps)
         },
       }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      // 高亮：黄色荧光笔效果，适合标注关键公式与易错点
+      Highlight.configure({ multicolor: true }),
+      // 文字颜色：靠 TextStyle 提供底层能力
+      TextStyle,
+      Color,
       Placeholder.configure({
-        placeholder: '开始写点什么…',
+        placeholder,
         emptyEditorClass: 'is-editor-empty',
       }),
       CharacterCount,
@@ -61,7 +80,7 @@ export function RichEditor({ content, onChange, onSave, readOnly }: EditorProps)
     },
     editorProps: {
       attributes: {
-        class: 'editor-body',
+        class: `editor-body${compact ? ' is-compact' : ''}`,
         spellcheck: 'false',
       },
     },
@@ -152,7 +171,7 @@ export function RichEditor({ content, onChange, onSave, readOnly }: EditorProps)
   if (!editor) return null
 
   return (
-    <div className="editor-shell">
+    <div className={`editor-shell${compact ? ' is-compact' : ''}`}>
       {!readOnly && (
         <Toolbar
           editor={editor}

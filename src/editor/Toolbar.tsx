@@ -7,8 +7,28 @@ interface ToolbarProps {
   uploadState: 'idle' | 'uploading' | 'error'
 }
 
+/** 高亮色板 —— 荧光笔效果 */
+const HIGHLIGHT_COLORS = [
+  { color: '#ffe58a', name: '黄' },
+  { color: '#b8f2c6', name: '绿' },
+  { color: '#bfe0ff', name: '蓝' },
+  { color: '#ffc9d9', name: '粉' },
+]
+
+/** 文字颜色板 */
+const TEXT_COLORS = [
+  { color: '#12161c', name: '墨' },
+  { color: '#b32334', name: '红' },
+  { color: '#9a5b00', name: '橙' },
+  { color: '#0b7a4b', name: '绿' },
+  { color: '#2f5fd0', name: '蓝' },
+  { color: '#6b3ba8', name: '紫' },
+]
+
 export function Toolbar({ editor, onPickImage, uploadState }: ToolbarProps) {
   const [tableOpen, setTableOpen] = useState(false)
+  const [highlightOpen, setHighlightOpen] = useState(false)
+  const [colorOpen, setColorOpen] = useState(false)
 
   const btn = (active: boolean) => `tb-btn${active ? ' is-active' : ''}`
 
@@ -109,6 +129,95 @@ export function Toolbar({ editor, onPickImage, uploadState }: ToolbarProps) {
         >
           ”
         </button>
+
+        {/* 高亮 */}
+        <div className="tb-group tb-group--table">
+          <button
+            type="button"
+            className={btn(editor.isActive('highlight'))}
+            onClick={() => setHighlightOpen((v) => !v)}
+            title="高亮"
+          >
+            <mark className="tb-mark">高</mark>
+          </button>
+          {highlightOpen && (
+            <div className="tb-pop tb-pop--colors">
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.color}
+                  type="button"
+                  className="tb-color"
+                  style={{ background: c.color }}
+                  title={c.name}
+                  onClick={() => {
+                    editor
+                      .chain()
+                      .focus()
+                      .toggleHighlight({ color: c.color })
+                      .run()
+                    setHighlightOpen(false)
+                  }}
+                />
+              ))}
+              <button
+                type="button"
+                className="tb-color tb-color--clear"
+                title="清除高亮"
+                onClick={() => {
+                  editor.chain().focus().unsetHighlight().run()
+                  setHighlightOpen(false)
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 文字颜色 */}
+        <div className="tb-group tb-group--table">
+          <button
+            type="button"
+            className={btn(!!editor.getAttributes('textStyle').color)}
+            onClick={() => setColorOpen((v) => !v)}
+            title="文字颜色"
+          >
+            <span
+              className="tb-color-label"
+              style={{ color: editor.getAttributes('textStyle').color || '#12161c' }}
+            >
+              A
+            </span>
+          </button>
+          {colorOpen && (
+            <div className="tb-pop tb-pop--colors">
+              {TEXT_COLORS.map((c) => (
+                <button
+                  key={c.color}
+                  type="button"
+                  className="tb-color"
+                  style={{ background: c.color }}
+                  title={c.name}
+                  onClick={() => {
+                    editor.chain().focus().setColor(c.color).run()
+                    setColorOpen(false)
+                  }}
+                />
+              ))}
+              <button
+                type="button"
+                className="tb-color tb-color--clear"
+                title="清除颜色"
+                onClick={() => {
+                  editor.chain().focus().unsetColor().run()
+                  setColorOpen(false)
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="tb-group tb-group--table">

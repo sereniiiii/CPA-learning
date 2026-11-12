@@ -194,10 +194,30 @@ export interface SubjectiveNote {
   /** 专题 ID */
   topicId: string
   topicTitle: string
-  /** 手写训练正文（用户写的过程、公式、结论） */
+  /** 手写训练正文（Tiptap JSON 字符串） */
   content: string
   /** 自评档位 */
   rating: 'none' | 'partial' | 'correct'
+  updatedAt: string
+}
+
+/**
+ * 习题作答记录。
+ *
+ * key = 章节ID + 习题页码（如 ch01-p43），
+ * 因为教材的习题按页排布，一页可能含多道题 —— 用户自己在编辑器里分题写。
+ */
+export interface ExerciseAnswer {
+  /** 所属章节 */
+  chapterId: string
+  /** 习题所在 PDF 页码 */
+  page: number
+  /** 册别 */
+  volume: string
+  /** 印刷页码 */
+  printPage: number
+  /** 作答正文（Tiptap JSON 字符串）—— 可含文字、表格、图片、高亮、颜色 */
+  content: string
   updatedAt: string
 }
 
@@ -217,6 +237,8 @@ export interface UserData {
   questions: UserQuestion[]
   /** 主观题训练记录 */
   subjectiveNotes: Record<string, SubjectiveNote>
+  /** 习题作答记录：key = 章节ID-p页码 */
+  exerciseAnswers: Record<string, ExerciseAnswer>
   /** 主观题专题（从下册第三部分解析） */
   subjectiveTopics: Array<{
     id: string
@@ -239,6 +261,7 @@ export const EMPTY_USER_DATA: UserData = {
   questions: [],
   subjectiveNotes: {},
   subjectiveTopics: [],
+  exerciseAnswers: {},
   updatedAt: '',
 }
 
