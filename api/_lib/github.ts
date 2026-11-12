@@ -91,7 +91,7 @@ function authHeaders(): Record<string, string> {
 }
 
 /** 读取分支头 commit；分支不存在返回 null */
-async function getHead(branch: string): Promise<CommitRef | null> {
+async function getHead(branch: string): Promise<(CommitRef & { treeSha: string }) | null> {
   const cfg = config()
   const res = await fetch(`${API}/repos/${cfg.owner}/${cfg.repo}/git/ref/heads/${branch}`, {
     headers: authHeaders(),
@@ -99,7 +99,11 @@ async function getHead(branch: string): Promise<CommitRef | null> {
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`GitHub API ${res.status} ref ${branch}`)
   const data = (await res.json()) as { object: { sha: string } }
-  return { sha: data.object.sha }
+  const sha = data.object.sha
+
+  // 一并取 head commit 的 tree sha —— base_tree 建树时要用
+  const commit = await gh<{ tree: { sha: string } }>(`/git/commits/${sha}`, { method: 'GET' })
+  return { sha, treeSha: commit.tree.sha }
 }
 
 /**
@@ -148,17 +152,8 @@ async function commitFiles(
 
   const head = await getHead(branch)
 
-  // 现有文件（递归），保留未受本次操作影响的部分
-  const existing = await getTree(branch)
-  const touched = new Set(files.map((f) => f.path))
-  const entries: Array<Record<string, string>> = []
-
-  for (const item of existing) {
-    if (touched.has(item.path)) continue
-    entries.push({ path: item.path, mode: '100644', type: 'blob', sha: item.sha })
-  }
-
-  // 本次写入的文件；删除项直接跳过（不列进新树即等于删除）
+  // 本次写入的文件 → 先创建 blob，拿到各自的 sha
+  const written: Array<{ path: string; sha: string }> = []
   for (const file of files) {
     if (file.delete) continue
     const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content, 'utf8')
@@ -169,12 +164,42 @@ async function commitFiles(
         encoding: 'base64',
       }),
     })
-    entries.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha })
+    written.push({ path: file.path, sha: blob.sha })
+  }
+
+  // 建树策略：
+  //   有删除项 → 必须重建整棵树（base_tree 不接受 sha:null 的删除项，会返回 422）
+  //   无删除项 → 用 base_tree 只提交变更路径，请求体从 758 项降到 1-2 项
+  //
+  // 为什么重要：data 分支有 758 张教材截图，重建整棵树会让 GitHub 的
+  // /git/trees 频繁 502 —— 而每次答题都要写一次，等于学习功能随机失败。
+  const hasDelete = files.some((f) => f.delete)
+  let treeBody: Record<string, unknown>
+
+  if (hasDelete) {
+    // 慢路径：拉全树，保留未受影响的文件
+    const existing = await getTree(branch)
+    const touched = new Set(files.map((f) => f.path))
+    const entries: Array<Record<string, string>> = []
+    for (const item of existing) {
+      if (touched.has(item.path)) continue
+      entries.push({ path: item.path, mode: '100644', type: 'blob', sha: item.sha })
+    }
+    for (const w of written) {
+      entries.push({ path: w.path, mode: '100644', type: 'blob', sha: w.sha })
+    }
+    treeBody = { tree: entries }
+  } else {
+    // 快路径：只提交变更路径，其余由 base_tree 继承
+    treeBody = {
+      base_tree: head ? head.treeSha : undefined,
+      tree: written.map((w) => ({ path: w.path, mode: '100644', type: 'blob', sha: w.sha })),
+    }
   }
 
   const tree = await gh<TreeRef>('/git/trees', {
     method: 'POST',
-    body: JSON.stringify({ tree: entries }),
+    body: JSON.stringify(treeBody),
   })
 
   const commit = await gh<CommitRef>('/git/commits', {
