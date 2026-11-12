@@ -1,0 +1,43 @@
+{
+ "learning": {
+  "reviews": {
+   "ch01-s01-p01": {
+    "mastery": 35,
+    "due": "2026-11-13",
+    "intervalIndex": 0,
+    "attempts": 1,
+    "lastResult": "correct",
+    "lastReviewed": "2026-11-12"
+   }
+  },
+  "wrongBook": {},
+  "subjective": {},
+  "updatedAt": "2026-11-12"
+ },
+ "userData": {
+  "overlays": {},
+  "annotations": {},
+  "questions": [],
+  "subjectiveNotes": {},
+  "subjectiveTopics": [],
+  "exerciseAnswers": {
+   "ch01-p49": {
+    "chapterId": "ch01",
+    "page": 49,
+    "volume": "上册",
+    "printPage": 34,
+    "content": "{\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"1. 计算项目的净现值：\", \"marks\": [{\"type\": \"bold\"}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"NPV = Σ (CI_t - CO_t)/(1+r)^t\", \"marks\": [{\"type\": \"highlight\", \"attrs\": {\"color\": \"#ffe58a\"}}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"折现率取 10%\", \"marks\": [{\"type\": \"textStyle\", \"attrs\": {\"color\": \"#b32334\"}}]}]}, {\"type\": \"table\", \"content\": [{\"type\": \"tableRow\", \"content\": [{\"type\": \"tableHeader\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"年份\"}]}]}, {\"type\": \"tableHeader\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"现金流\"}]}]}]}, {\"type\": \"tableRow\", \"content\": [{\"type\": \"tableCell\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"0\"}]}]}, {\"type\": \"tableCell\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"-1000\"}]}]}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"答案见教材解析第 466 页\"}]}]}",
+    "updatedAt": "2026-11-12"
+   },
+   "ch01-p46": {
+    "chapterId": "ch01",
+    "page": 46,
+    "volume": "上册",
+    "printPage": 30,
+    "content": "{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"textAlign\":null,\"level\":2}},{\"type\":\"paragraph\",\"attrs\":{\"textAlign\":null}}]}",
+    "updatedAt": "2026-11-12T05:42:12.394Z"
+   }
+  },
+  "updatedAt": "2026-11-12T05:42:12.394Z"
+ }
+}
