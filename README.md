@@ -114,14 +114,44 @@ npx vercel dev                # 同时启动前端与 API
 
 ## 备份与恢复
 
-内容全部在 `data` 分支，每个 commit 都是一个完整快照。
+三层保护，从松到紧：
+
+### 第一层：Git 历史（自动，随时可用）
+
+每次保存都是一个 commit，误删误改立刻可回滚。无需任何操作。
 
 ```bash
 git clone https://github.com/sereniiiii/CPA-learning.git
 cd CPA-learning && git checkout data
 ```
 
-回滚单个文件：在 GitHub 网页端看 `data` 分支的 commit 历史，找到目标版本 → `Revert this commit`。
+单个文件回滚：GitHub 网页端看 `data` 分支的 commit 历史 → 找到目标版本 → `Revert this commit`。
+
+### 第二层：JSON 导出（手动，一键）
+
+侧边栏右下角有「导出 / 导入」两个按钮（默认半透明，鼠标移上去才明显）。
+
+- **导出** —— 下载一个 `cpa-learning-日期.json` 文件，包含全部笔记正文（富文本 JSON 格式，
+  表格、图片引用都完整保留）和所有图片的 base64 内嵌。**这是完整的离线副本**，
+  存到微信收藏、网盘、邮箱都随意。
+- **导入** —— 选择之前导出的 JSON 文件即可恢复。会弹窗让你选模式：
+  - **确定 = 合并**：覆盖同名笔记，保留其他笔记
+  - **取消 = 完全还原**：先清空现有内容，再按文件还原
+
+导出文件是纯文本 JSON，可以直接用文本编辑器查看，也能被脚本处理。
+
+### 第三层：自动定时备份（需额外配置）
+
+`.github/workflows/backup.yml` 已写好（每日 UTC 15:00 = 北京时间 23:00），
+但**提交它需要 GitHub token 带 `workflow` 权限**，当前 token 没有，故未上传。
+
+配置好权限后推上去即可生效，它会：
+1. 把 `data` 分支打包成 tar.gz
+2. 存为 GitHub Release 附件（本地兜底）
+3. 若配置了腾讯云 COS 密钥，同时上传到 COS（异地备份）
+
+COS 需要在仓库 Settings → Secrets → Actions 添加四个变量：
+`COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_REGION`、`COS_BUCKET`。
 
 ## 注意事项
 
