@@ -162,7 +162,9 @@ export function isDue(state: LearningState, pid: string, today = todayStr()): bo
   const r = state.reviews[pid]
   if (!r) return false
   if (!r.due) return true // 学过但没排下次 → 视为该复习了
-  return daysBetween(today, r.due) >= 0
+  // 到期日 <= 今天 才算到期。
+  // daysBetween(from, to) = to - from，所以要算 (今天 - 到期日) >= 0。
+  return daysBetween(r.due, today) >= 0
 }
 
 /** 逾期天数（0 = 今天到期，负 = 尚未到期） */
