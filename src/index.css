@@ -3497,3 +3497,53 @@ a { color: var(--blue); }
   background: var(--purple-soft);
   color: var(--purple);
 }
+
+/* ============================================================
+   考点热度标志：火苗等级 + 次数框
+   ============================================================ */
+
+.hot-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* 火苗：三个一排，挤一点显得是个整体 */
+.hot-flames {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -2px;
+  margin-right: 1px;
+  filter: saturate(1.05);
+}
+
+.hot-flag.is-compact .hot-flames {
+  font-size: 10px;
+}
+
+/* 次数：单独一个圆角框，不跟标题文字混在一起 */
+.hot-count {
+  padding: 1px 6px;
+  border: 1px solid var(--amber);
+  border-radius: 999px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.hot-flag.is-compact .hot-count {
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* 暗色下边框和底色要跟着变，否则框会糊成一片 */
+.hot-count {
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+}

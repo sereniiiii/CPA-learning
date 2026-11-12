@@ -17,7 +17,7 @@ from subject_config import SUBJECT_ID
 BASE = "/Users/seren/WorkBuddy/2026-11-12-00-20-32"
 
 # 工作目录（按科目隔离，避免多科内容互相覆盖）
-WORK = os.environ.get("WORK_DIR", f"{WORK}")
+WORK = os.environ.get("WORK_DIR", f"{BASE}/build")
 
 
 def main():

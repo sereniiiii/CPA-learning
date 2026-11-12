@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { QueueItem } from '../learning'
 import { SubjectLibrary } from '../types'
+import { HotFlag } from './HotFlag'
 
 export function TodayView({
   queue,
@@ -103,9 +104,7 @@ export function TodayView({
                   {c.difficulty}
                 </span>
               )}
-              {c.hot > 0 && (
-                <span className="muted small">5年热点 {c.hot} 次</span>
-              )}
+              <HotFlag hot={c.hot} compact />
               <span style={{ flex: 1 }} />
               {c.queued > 0 && (
                 <span className="count-chip is-new">{c.queued} 待学</span>

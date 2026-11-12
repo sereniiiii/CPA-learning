@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChapterMeta, SubjectLibrary, scopedPointId } from '../types'
+import { HotFlag } from './HotFlag'
 
 /**
  * 教材库视图：左侧目录树 + 右侧章节卡片。
@@ -229,7 +230,7 @@ function ChapterTree({
                     {!isWrong(pid) && isDue(pid) && (
                       <span className="mini-badge m-due">复习</span>
                     )}
-                    {p.hot != null && <span className="mini-badge m-hot">热{p.hot}</span>}
+                    <HotFlag hot={p.hot} compact />
                     {m >= 60 && <span className="mini-badge m-易">✓</span>}
                   </button>
                 )
@@ -348,7 +349,7 @@ function ChapterCard({
                         </span>
                       )}
                       {p.hot != null && (
-                        <span className="badge badge-hot">热{p.hot}</span>
+                        <HotFlag hot={p.hot} compact />
                       )}
                       {m > 0 && (
                         <span className="point-mastery" style={{ width: `${m}%` }} />

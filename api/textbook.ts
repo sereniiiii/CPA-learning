@@ -85,9 +85,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!/^[a-z0-9_\-\u4e00-\u9fff]{1,80}\.(png|jpg)$/.test(name)) {
           return res.status(400).json({ error: '非法的图片名' })
         }
-        const data = await readBinary(`data/subjects/${subject}/blocks/${name}`)
+        let data = await readBinary(`data/subjects/${subject}/blocks/${name}`)
+        let ext = name.endsWith('.jpg') ? 'jpg' : 'png'
+        if (!data && name.endsWith('.png')) {
+          // 教材块图统一转成了 JPEG（体积省 76%）。
+          // 前端/旧数据可能还在请求 .png —— 自动回退找 .jpg。
+          const alt = name.replace(/\.png$/, '.jpg')
+          data = await readBinary(`data/subjects/${subject}/blocks/${alt}`)
+          if (data) ext = 'jpg'
+        }
         if (!data) return res.status(404).json({ error: '截图不存在' })
-        res.setHeader('Content-Type', name.endsWith('.jpg') ? 'image/jpeg' : 'image/png')
+        res.setHeader('Content-Type', ext === 'jpg' ? 'image/jpeg' : 'image/png')
         res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
         return res.status(200).send(data)
       }

@@ -338,7 +338,8 @@ function ShotImage({ page, subjectId }: { page: number; subjectId: string }) {
   const [failed, setFailed] = useState(false)
   const [zoomed, setZoomed] = useState(false)
   // 主观题页块：整页去掉页眉水印
-  const name = `down-${String(page).padStart(4, '0')}.png`
+  // 教材块图统一存成 JPEG（体积小），用 .jpg
+  const name = `down-${String(page).padStart(4, '0')}.jpg`
 
   useEffect(() => {
     setLoaded(false)

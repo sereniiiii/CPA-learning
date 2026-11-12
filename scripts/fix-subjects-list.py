@@ -16,6 +16,7 @@ KNOWN = {
     "cwc": {"name": "财管", "color": "#2f5fd0", "volumeCount": 3},
     "sts": {"name": "税法", "color": "#0b7a4b", "volumeCount": 3},
     "eco": {"name": "经济法", "color": "#6b3ba8", "volumeCount": 3},
+    "kj": {"name": "会计", "color": "#9a5b00", "volumeCount": 3},
 }
 
 

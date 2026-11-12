@@ -37,14 +37,19 @@ for spec in "cwc:财管" "eco:经济法" "sts:税法" "kj:会计"; do
     cp "$SRC/subjectives/"*.json "$REPO/data/subjects/$SID/subjectives/" 2>/dev/null || true
   fi
 
-  # 块图：jpg 优先（体积小），找不到再退 png
+  # 块图：**只传 jpg**。
+  # PNG 留在本地作备份（转 JPEG 时没删，避免触发批量删除保护），
+  # 两者都传会让仓库翻倍（3.2GB 而不是 931MB）。
   BLOCK_DIR="$ROOT/build/$SID/blocks/$NAME"
   [ -d "$BLOCK_DIR" ] || BLOCK_DIR="$ROOT/build/$SID/blocks"
   mkdir -p "$REPO/data/subjects/$SID/blocks"
   rm -f "$REPO/data/subjects/$SID/blocks/"*.jpg 2>/dev/null || true
   rm -f "$REPO/data/subjects/$SID/blocks/"*.png 2>/dev/null || true
-  cp "$BLOCK_DIR/"*.jpg "$REPO/data/subjects/$SID/blocks/" 2>/dev/null || true
-  cp "$BLOCK_DIR/"*.png "$REPO/data/subjects/$SID/blocks/" 2>/dev/null || true
+  if ls "$BLOCK_DIR/"*.jpg >/dev/null 2>&1; then
+    cp "$BLOCK_DIR/"*.jpg "$REPO/data/subjects/$SID/blocks/"
+  else
+    cp "$BLOCK_DIR/"*.png "$REPO/data/subjects/$SID/blocks/" 2>/dev/null || true
+  fi
 
   n=$(ls "$REPO/data/subjects/$SID/blocks/" 2>/dev/null | wc -l | tr -d ' ')
   sz=$(du -sh "$REPO/data/subjects/$SID/blocks" 2>/dev/null | cut -f1)

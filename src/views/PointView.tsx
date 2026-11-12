@@ -13,6 +13,7 @@ import { OverlayEditor, QuestionEditor } from './EditPanel'
 import { ExerciseWorkbench } from './ExerciseWorkbench'
 import { AnnotationComposer } from './AnnotationComposer'
 import { ImageAnnotator } from './ImageAnnotator'
+import { HotFlag } from './HotFlag'
 
 interface Props {
   subjectId: string
@@ -269,7 +270,7 @@ export function PointView({
           {point.difficulty && (
             <span className={`badge badge-diff is-${point.difficulty}`}>难度 {point.difficulty}</span>
           )}
-          {point.hot != null && <span className="badge badge-hot">5年热点 {point.hot} 次</span>}
+          <HotFlag hot={point.hot} />
           {point.hot != null && (
             <span className="muted small">高频但不代表必考，可当筛选器不能当排除器</span>
           )}
