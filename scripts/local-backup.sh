@@ -82,3 +82,24 @@ fi
 
 SIZE=$(du -sh "$DEST" 2>/dev/null | cut -f1)
 log "完成，快照大小 ${SIZE}，当前共 ${COUNT} 份"
+
+# 若配置了 COS 密钥，顺带上传到云端（异地备份）
+# 密钥从独立文件读取，不写进 plist，也不进环境变量
+COS_ENV_FILE="$HOME/.config/study-hub/cos.env"
+if [ -f "$COS_ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  . "$COS_ENV_FILE"
+fi
+
+if [ -n "${COS_SECRET_ID:-}" ] && [ -n "${COS_SECRET_KEY:-}" ] && [ -n "${COS_BUCKET:-}" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  PY=$(command -v python3 || echo /usr/bin/python3)
+  if "$PY" -c "import qcloud_cos" 2>/dev/null; then
+    log "上传到腾讯云 COS…"
+    "$PY" "$SCRIPT_DIR/backup-to-cos.py" || log "COS 上传失败（不影响本地备份）"
+  else
+    log "未安装 cos-python-sdk-v5，跳过 COS 上传"
+  fi
+else
+  log "未配置 COS 密钥，仅本地备份"
+fi
