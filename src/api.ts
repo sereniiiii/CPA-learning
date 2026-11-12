@@ -51,7 +51,7 @@ export async function logout(): Promise<void> {
   await request('/api/session', { method: 'DELETE' })
 }
 
-/* ---------- 页面 ---------- */
+/* ---------- 我的笔记（可写） ---------- */
 
 export async function listPages(): Promise<PageMeta[]> {
   const data = await request<{ pages: PageMeta[] }>('/api/pages')
@@ -70,11 +70,7 @@ export async function createPage(title: string, content = ''): Promise<PageMeta>
   return data.page
 }
 
-export async function savePage(
-  id: string,
-  title: string,
-  content: string,
-): Promise<PageMeta> {
+export async function savePage(id: string, title: string, content: string): Promise<PageMeta> {
   const data = await request<{ page: PageMeta }>('/api/pages', {
     method: 'PUT',
     body: JSON.stringify({ id, title, content }),
@@ -99,28 +95,39 @@ export async function uploadImage(dataUrl: string): Promise<string> {
   return data.url
 }
 
-/* ---------- 导入导出 ---------- */
+/* ---------- 教材内容库 ---------- */
 
-export interface ExportedPage {
-  id: string
-  title: string
-  content: string
-  createdAt?: string
-  updatedAt?: string
+export const learningApi = {
+  getIndex: () => request<import('./types').TextbookIndex>('/api/textbook?kind=index'),
+
+  getChapter: (id: string) =>
+    request<import('./types').Chapter>(`/api/textbook?kind=chapter&id=${encodeURIComponent(id)}`),
+
+  getSubjectives: () =>
+    request<{
+      pages: Array<{
+        source: { volume: string; pdfPage: number; printPage: number }
+        text: string
+      }>
+    }>('/api/textbook?kind=subjectives'),
+
+  shotUrl: (name: string) => `/api/textbook?kind=shot&name=${encodeURIComponent(name)}`,
 }
+
+/* ---------- 导入导出 ---------- */
 
 export interface ExportBundle {
   version: number
   exportedAt: string
-  pages: ExportedPage[]
+  pages: Array<{ id: string; title: string; content: string }>
   assets: Record<string, string>
 }
 
-/** 导出：先取内容清单，再逐张把图片转成 base64 内嵌 */
-export async function exportAll(onProgress?: (done: number, total: number) => void): Promise<ExportBundle> {
+export async function exportAll(
+  onProgress?: (done: number, total: number) => void,
+): Promise<ExportBundle> {
   const manifest = await request<Omit<ExportBundle, 'assets'>>('/api/export')
 
-  // 从正文里找出所有图片引用
   const assetIds = new Set<string>()
   for (const page of manifest.pages) {
     const matches = page.content.match(/\/api\/asset\?id=([a-zA-Z0-9._-]+)/g) ?? []
@@ -133,7 +140,6 @@ export async function exportAll(onProgress?: (done: number, total: number) => vo
   const ids = [...assetIds]
   const assets: Record<string, string> = {}
 
-  // 并发拉取图片，控制并发数避免打爆浏览器连接
   const CONCURRENCY = 5
   let done = 0
   for (let i = 0; i < ids.length; i += CONCURRENCY) {
@@ -161,7 +167,6 @@ export async function exportAll(onProgress?: (done: number, total: number) => vo
   return { ...manifest, assets }
 }
 
-/** 导入：恢复页面与图片 */
 export async function importAll(
   bundle: ExportBundle,
   mode: 'merge' | 'replace',
@@ -183,4 +188,3 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.readAsDataURL(blob)
   })
 }
-
