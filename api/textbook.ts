@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (kind === 'shot') {
         const name = typeof req.query.name === 'string' ? req.query.name : ''
-        if (!/^[a-z]{3}-\d{4}\.jpg$/.test(name)) {
+        if (!/^[a-z]{2,3}-\d{4}\.jpg$/.test(name)) {
           return res.status(400).json({ error: '非法的截图名' })
         }
         const data = await readBinary(`data/shots/${name}`)

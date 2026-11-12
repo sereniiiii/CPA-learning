@@ -368,7 +368,8 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
         sections.append(cur_section)
         cur_point = None
 
-    def ensure_point(num: int, title: str, difficulty, hot, seq: int, print_page: int):
+    def ensure_point(num: int, title: str, difficulty, hot, seq: int, print_page: int,
+                     broken_mark: bool = False):
         nonlocal cur_point
         point = {
             "num": num,
@@ -379,7 +380,8 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
             "examples": [],
             "source": {"volume": vol, "pdfPage": seq, "printPage": print_page},
             "status": "待核",
-            "render": "text",
+            # 难度标记 OCR 损坏 → 该考点内容不可全信，按设计文档 4.1 走截图
+            "render": "screenshot" if broken_mark else "text",
         }
         if cur_section is None:
             ensure_section("（未分节）", 0)
@@ -426,7 +428,8 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
                 parsed = parse_point_line(s)
                 if parsed:
                     ensure_point(parsed["num"], parsed["title"],
-                                 parsed["difficulty"], parsed["hot"], seq, print_page)
+                                 parsed["difficulty"], parsed["hot"], seq, print_page,
+                                 parsed.get("brokenMark", False))
                     i += 1
                     continue
 
