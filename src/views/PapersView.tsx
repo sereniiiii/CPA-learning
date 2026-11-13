@@ -42,7 +42,12 @@ export function PapersView({ subjectId }: { subjectId: string }) {
     fetch(`/api/textbook?kind=papers&subject=${encodeURIComponent(subjectId)}`, {
       credentials: 'include',
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((r) => {
+        // 该科目没有模考卷 → 正常状态，不是错误
+        if (r.status === 404) return { papers: [] }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((d) => setPapers(d.papers ?? []))
       .catch((e) => setErr(String(e)))
       .finally(() => setLoading(false))
