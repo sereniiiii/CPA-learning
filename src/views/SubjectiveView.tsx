@@ -16,7 +16,19 @@ interface TopicDetail {
   num: number
   title: string
   source: { volume: string; pdfPage: number; printPage: number }
-  pages: Array<{ pdfPage: number; text: string }>
+  pages: Array<{
+    pdfPage: number
+    text: string
+    /**
+     * 页图文件名。
+     *
+     * 教材里的主观题集训用 `down-<教材页码>.jpg`；
+     * 轻二大题篇是独立练习册，用 `dq2-<专题>-<页>.jpg`（两套页码体系）。
+     */
+    image?: string
+    /** 题 / 答案 —— 有答案的页默认折叠，先做后看 */
+    kind?: string
+  }>
 }
 
 /**
@@ -202,7 +214,17 @@ function SubjectiveDetail({
   }, [note?.content])
 
   const current = topic.pages.find((p) => p.pdfPage === page) ?? topic.pages[0]
-  const idx = topic.pages.findIndex((p) => p.pdfPage === current?.pdfPage)
+
+  // 答案页（轻二大题篇有「题」和「答案」两类页）。
+  // 答案默认折叠 —— 先自己写，写完再对照，和客观题一个道理。
+  const answerPages = topic.pages.filter((p) => p.kind === '答案')
+  const questionPages = topic.pages.filter((p) => p.kind !== '答案')
+  const [showAnswer, setShowAnswer] = useState(false)
+  const visiblePages = showAnswer ? topic.pages : (
+    answerPages.length > 0 && questionPages.length > 0 ? questionPages : topic.pages
+  )
+  const visibleIdx = visiblePages.findIndex((p) => p.pdfPage === current?.pdfPage)
+  const onVisiblePage = visibleIdx >= 0 ? visiblePages[visibleIdx] : current
 
   return (
     <>
@@ -228,26 +250,46 @@ function SubjectiveDetail({
         <div className="shot-panel-head">
           <span className="label">原书页</span>
           <span className="muted small">
-            第 {idx + 1} / {topic.pages.length} 页
+            第 {Math.max(0, visibleIdx) + 1} / {visiblePages.length} 页
           </span>
           <div style={{ flex: 1 }} />
+          {answerPages.length > 0 && (
+            <button
+              className={`top-btn${showAnswer ? ' is-on' : ''}`}
+              onClick={() => {
+                setShowAnswer((v) => !v)
+                // 展开答案时跳到第一页答案；收起时跳回第一页题
+                const target = showAnswer
+                  ? (questionPages[0] ?? answerPages[0])
+                  : answerPages[0]
+                if (target) setPage(target.pdfPage)
+              }}
+              title={showAnswer ? '收起答案' : '对照答案'}
+            >
+              {showAnswer ? '收起答案' : `看答案（${answerPages.length} 页）`}
+            </button>
+          )}
           <button
             className="top-btn"
-            disabled={idx <= 0}
-            onClick={() => setPage(topic.pages[idx - 1].pdfPage)}
+            disabled={visibleIdx <= 0}
+            onClick={() => setPage(visiblePages[visibleIdx - 1].pdfPage)}
           >
             ← 上一页
           </button>
           <button
             className="top-btn"
-            disabled={idx >= topic.pages.length - 1}
-            onClick={() => setPage(topic.pages[idx + 1].pdfPage)}
+            disabled={visibleIdx >= visiblePages.length - 1}
+            onClick={() => setPage(visiblePages[visibleIdx + 1].pdfPage)}
           >
             下一页 →
           </button>
         </div>
         <div className="shot-panel-body">
-          <ShotImage page={current?.pdfPage ?? topic.source.pdfPage} subjectId={subjectId} />
+          <ShotImage
+            page={onVisiblePage?.pdfPage ?? topic.source.pdfPage}
+            subjectId={subjectId}
+            image={onVisiblePage?.image}
+          />
         </div>
       </div>
 
@@ -335,13 +377,22 @@ function SubjectiveDetail({
   )
 }
 
-function ShotImage({ page, subjectId }: { page: number; subjectId: string }) {
+function ShotImage({
+  page,
+  subjectId,
+  image,
+}: {
+  page: number
+  subjectId: string
+  image?: string
+}) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [zoomed, setZoomed] = useState(false)
   // 主观题页块：整页去掉页眉水印
   // 教材块图统一存成 JPEG（体积小），用 .jpg
-  const name = `down-${String(page).padStart(4, '0')}.jpg`
+  // 轻二大题篇等独立练习册自带图名（image 字段）
+  const name = image ?? `down-${String(page).padStart(4, '0')}.jpg`
 
   useEffect(() => {
     setLoaded(false)

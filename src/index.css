@@ -3547,3 +3547,10 @@ a { color: var(--blue); }
 .hot-count {
   border-color: color-mix(in srgb, var(--amber) 45%, transparent);
 }
+
+/* 主观题「看答案」开关 */
+.top-btn.is-on {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
