@@ -22,8 +22,9 @@ echo "════ 装入各科目产物"
 for spec in "cwc:财管" "eco:经济法" "sts:税法" "kj:会计"; do
   SID=${spec%%:*}; NAME=${spec##*:}
   # 产物目录位置不统一：找 build/<sid> 下含 index.json 的 upload 目录
+  # 必须排除 subjectives/（它也有 index.json，是专题索引不是章节目录）
   SRC=$(find "$ROOT/build/$SID" -maxdepth 5 -name "index.json" -path "*upload*" \
-        2>/dev/null | head -1 | xargs dirname 2>/dev/null || true)
+        -not -path "*/subjectives/*" 2>/dev/null | head -1 | xargs dirname 2>/dev/null || true)
   if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
     echo "  跳过 $NAME（无产物）"; continue
   fi

@@ -114,8 +114,16 @@ def parse_point_line(line: str):
 
 
 def parse_section_line(line: str):
-    """解析「第X节 标题」"""
+    """
+    解析节标题。
+
+    两种教材写法：
+      财管/税法/会计：「第X节 标题」
+      经济法         ：「第X单元 标题」（没有「节」这个层级）
+    """
     m = re.search(r"第([一二三四五六七八九十]+)节\s+(.+?)\s*$", line)
+    if not m:
+        m = re.search(r"第([一二三四五六七八九十]+)单元\s+(.+?)\s*$", line)
     if not m:
         return None
     return m.group(1), m.group(2).strip()

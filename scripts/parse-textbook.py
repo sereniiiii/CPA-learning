@@ -469,7 +469,7 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
 
     def ensure_point(num: int, title: str, difficulty, hot, seq: int, print_page: int,
                      broken_mark: bool = False):
-        nonlocal cur_point
+        nonlocal cur_point, cur_section
         # 正文一律用原书截图呈现，OCR 文字层不可信且冗余 —— 不入库。
         # 保留的只有：考点名、难度、热点次数、来源页码（决定显示哪张截图）。
         point = {
@@ -483,7 +483,16 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
             "render": "screenshot",
         }
         if cur_section is None:
-            ensure_section("（未分节）", 0)
+            if sections:
+                # 章里已经有节了 → 这个考点出现在第一个节标题之前
+                # （比如「税法总论」的第 1 个考点在「第一节」之前）。
+                # 归到第一个节，不要单开一个「第0节」。
+                cur_section = sections[0]
+            else:
+                # 还没有任何节标题 —— 先挂一个**临时节**（num=-1），
+                # 等第一个真节出现时合并进去。
+                # 直接建第 0 节会在界面上留下难看的「第0节（未分节）」。
+                ensure_section("（章首）", -1)
         cur_section["points"].append(point)
         cur_point = point
         return point
@@ -654,6 +663,24 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
                         "printPage": extract_print_page(raw, p["seq"])},
             "status": "待核",
         })
+
+    # 清理临时节（章首那批考点）。
+    #
+    # 章首的考点出现在第一个节标题之前 —— 它们先挂在 num=-1 的临时节上，
+    # 现在：如果后面有真正的节，就把它们挪到第一节；
+    # 如果整章都没有节标题，就改成「本章内容」（而不是难看的「第0节」）。
+    temp = [sec for sec in sections if sec["num"] < 0]
+    if temp:
+        rest = [sec for sec in sections if sec["num"] >= 0]
+        temp_pts = [pt for sec in temp for pt in sec["points"]]
+        if rest:
+            rest[0]["points"] = temp_pts + rest[0]["points"]
+            sections = rest
+        else:
+            for sec in temp:
+                sec["num"] = 0
+                sec["title"] = "本章内容"
+            sections = temp
 
     return {
         "id": f"ch{meta['num']:02d}",
