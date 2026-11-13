@@ -524,11 +524,19 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
 
         lines = t.split("\n")
         i = 0
+        # 最近一次看到的「5年热点N次」。
+        # 审计教材的热点行排在考点号**上面**一行（考点行本身没有热点），
+        # 建考点时用「最近看到的」值兜底。
+        last_hot = None
         while i < len(lines):
             s = lines[i].strip()
             if not s:
                 i += 1
                 continue
+
+            hm2 = re.search(r"5\s*年\s*热\s*点\s*[|｜I l 1]?\s*(\d{1,2})", s)
+            if hm2:
+                last_hot = int(hm2.group(1))
 
             if s == "考点剖析":
                 in_analysis = True
@@ -563,6 +571,13 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
                 i += 1
                 continue
 
+            # 「考点NN」本身就能开启分析区。
+            # 财管/税法有「考点剖析」这个标题做分界，**审计教材没有** ——
+            # 正文直接就是「大纲要求 / 考点03 / 保证程度」。
+            # 没有这一条，审计整章的考点都会被挡在外面。
+            if re.match(r"^考点\s*\d{1,2}\b", s):
+                in_analysis = True
+
             if not in_analysis:
                 i += 1
                 continue
@@ -574,10 +589,54 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
                 continue
 
             if re.match(r"^考点\s*\d{1,2}\b", s):
+                pm3 = re.match(r"^考点\s*(\d{1,2})\b", s)
                 parsed = parse_point_line(s)
+                if parsed is None and pm3:
+                    # 审计教材：考点号是**光杆一行**（「考点03」），
+                    # 名称在**上一行或下一行**（取决于排版）：
+                    #   上一行：「审计的产生和发展」→ 「考点01」
+                    #   下一行：「考点03」→「保证程度」
+                    # parse_point_line 要求名称同行，匹配不上会返回 None，
+                    # 所以这里自己构造，名称上下都找。
+                    title = ""
+                    for off in (-1, 1):
+                        k = i + off
+                        if k < 0 or k >= len(lines):
+                            continue
+                        cand = lines[k].strip()
+                        if (cand and len(cand) <= 30
+                                and not re.match(r"^考点\s*\d", cand)
+                                and not re.match(r"^第[一二三四五六七八九十]+[节章单元]", cand)
+                                and not re.match(r"^大纲要求", cand)
+                                and not re.match(r"^5\s*年\s*热", cand)
+                                and not re.match(r"^[（(]", cand)
+                                and "2026年注册会计师" not in cand
+                                and not re.match(r"^\d{1,4}\s+2026", cand)):
+                            title = cand
+                            if off == 1:
+                                i += 1   # 下一行当标题 → 消费掉
+                            # off == -1（上一行）**不要动 i**：
+                            # 上一行在上一轮循环里已经处理过了，
+                            # 再减回去会无限循环（内存爆掉被 kill）。
+                            break
+                    parsed = {"num": int(pm3.group(1)), "title": title,
+                              "difficulty": None, "hot": None,
+                              "brokenMark": False}
                 if parsed:
-                    ensure_point(parsed["num"], parsed["title"],
-                                 parsed["difficulty"], parsed["hot"], seq, print_page,
+                    title = parsed["title"]
+                    # 有些教材考点号与名称仍分两行（parsed 有编号但标题为空）
+                    if not title.strip() and i + 1 < len(lines):
+                        nxt = lines[i + 1].strip()
+                        if (nxt and len(nxt) <= 30
+                                and not re.match(r"^考点\s*\d", nxt)
+                                and not re.match(r"^第[一二三四五六七八九十]+[节章单元]", nxt)
+                                and not re.match(r"^大纲要求", nxt)):
+                            title = nxt
+                            i += 1
+                    ensure_point(parsed["num"], title,
+                                 parsed["difficulty"],
+                                 parsed["hot"] if parsed["hot"] is not None else last_hot,
+                                 seq, print_page,
                                  parsed.get("brokenMark", False))
                     i += 1
                     continue
