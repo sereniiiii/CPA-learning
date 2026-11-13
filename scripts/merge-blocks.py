@@ -46,6 +46,13 @@ def main():
     # 教材考点列表（按全局顺序）：(volume, pdfPage, chapterId, pointNum)
     book = json.load(open(f"{WORK}/textbook.json", encoding="utf-8"))
     points_seq = []
+    # 全局唯一序号。
+    #
+    # **不能用 (章, 节, 考点号) 做 key** —— 战略教材的考点编号本身是乱的
+    # （同一节里出现 1,3,2,1,3,2,3,5,4，教材按「考点剖析」分块、每块重新编号）。
+    # 重复的号会让多个考点共用一个 key → 归并统计对不上，
+    # 章节文件里同一批块被多个考点重复引用。序号唯一且稳定。
+    global_idx = 0
     for ch in book["chapters"]:
         vol = VOL[ch["volume"]]
         for sec in ch["sections"]:
@@ -56,8 +63,10 @@ def main():
                     "chapterId": ch["id"],
                     "sectionNum": sec["num"],
                     "pointNum": p["num"],
+                    "idx": global_idx,
                     "point": p,
                 })
+                global_idx += 1
 
     # 归属算法：
     #   point 块   → 它自己的考点（按 label「考点NN」+ 所在章定位）
@@ -172,33 +181,41 @@ def main():
             #
             # 改成按顺序：教材解析出的考点列表与切块产出的 point 块
             # 都是按正文出现顺序生成的，第 N 个对第 N 个。
-            idx = point_block_index.get((cid, b["file"]))
             cands = chapter_points[cid]
             if not cands:
                 continue
+
+            # 归属：按**章内序号**对应。
+            #
+            # 「章内第 N 个 point 块 ↔ 章内第 N 个考点」——
+            # 财管/税法/会计/审计实测都对（221/222 有块）。
+            # 试过改成「按页码最近」，财管立刻掉到 174/222 —— 不行。
+            #
+            # 但**框架页也会切出 point 块**（战略的框架页形如
+            # 「考点 01）公司战略的定义」），插在正文块中间会打乱序号。
+            # 所以只在序号对得上时用序号，对不上再退回按题号匹配。
+            idx = point_block_index.get((cid, b["file"]))
             if idx is not None and idx < len(cands):
                 chosen = cands[idx]
             elif idx is not None:
-                # 序号超出考点列表长度（解析漏识别了部分考点）。
-                # **不要丢块** —— 归到该章最后一个考点，内容还在。
+                # 序号超出考点列表长度 → 归到该章最后一个考点，别丢内容
                 chosen = cands[-1]
             else:
-                # 没有序号（块不在任何章的 point 序列里）→ 按题号匹配
                 m = re.search(r"考点\s*(\d+)", b["label"])
                 if not m:
                     continue
                 pnum = int(m.group(1))
                 cands2 = [
                     p
-                    for p in chapter_points[cid]
+                    for p in cands
                     if p["pointNum"] == pnum
-                    and (cid, p["sectionNum"], p["pointNum"]) not in used_keys
-                ] or [p for p in chapter_points[cid] if p["pointNum"] == pnum]
+                    and (cid, p["idx"]) not in used_keys
+                ] or [p for p in cands if p["pointNum"] == pnum]
                 if not cands2:
                     continue
                 chosen = cands2[0]
-            used_keys.add((cid, chosen["sectionNum"], chosen["pointNum"]))
-            cur_key = (cid, chosen["sectionNum"], chosen["pointNum"])
+            used_keys.add((cid, chosen["idx"]))
+            cur_key = (cid, chosen["idx"])
         else:
             if cur_key is None:
                 # fallback：这块没跟在任何考点起点后面。
@@ -217,7 +234,7 @@ def main():
                     cands,
                     key=lambda p: abs(p["page"] - page),
                 )
-                cur_key = (cid, best["sectionNum"], best["pointNum"])
+                cur_key = (cid, best["idx"])
 
         assignment.setdefault(cur_key, []).append(b)
 
@@ -269,6 +286,15 @@ def main():
               ensure_ascii=False, separators=(",", ":"))
 
     # 章节详情：带上块列表
+    # 每个考点在全局序列里的位置（与 points_seq 的 idx 一致）
+    _pos = {}
+    _gi = 0
+    for _ch in book["chapters"]:
+        for _sec in _ch["sections"]:
+            for _pi, _p in enumerate(_sec["points"]):
+                _pos[(_ch["id"], _sec["num"], _pi)] = _gi
+                _gi += 1
+
     for ch in book["chapters"]:
         detail = json.loads(json.dumps(ch))
         # 章末习题页的块（命名规则与 split-exercise-pages.py 一致）
@@ -276,10 +302,10 @@ def main():
             vol = VOL[ch["volume"]]
             ex["block"] = f"exercise-{vol}-{ex['source']['pdfPage']:04d}.png"
         for sec in detail["sections"]:
-            for p in sec["points"]:
+            for _pi, p in enumerate(sec["points"]):
                 p["blocks"] = [
                     b["file"].split("/")[-1]
-                    for b in assignment.get((ch["id"], sec["num"], p["num"]), [])
+                    for b in assignment.get((ch["id"], _pos[(ch["id"], sec["num"], _pi)]), [])
                 ]
                 # 例题带答案（按章匹配题号）
                 chap_ans = chapter_answers.get(ch["id"], {})
@@ -345,7 +371,7 @@ def main():
     with_blocks = sum(
         1
         for p in points_seq
-        if assignment.get((p["chapterId"], p["sectionNum"], p["pointNum"]))
+        if assignment.get((p["chapterId"], p["idx"]))
     )
     print(f"块总数 {len(blocks)}，已归并 {assigned}（{assigned/len(blocks)*100:.0f}%）")
     print(f"有块的考点: {with_blocks}/{len(points_seq)}")

@@ -482,6 +482,20 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
             "status": "待核",
             "render": "screenshot",
         }
+        # 考点号去重。
+        #
+        # 战略教材的考点编号本身是乱的 —— 同一节里出现 1,3,2,1,3,2,3,5,4
+        # （教材按「考点剖析」分块，每块重新编号，且块间有重叠）。
+        # 考点号是归并块时的 key，重复就�� key 撞车 →
+        # 归并计数和章节文件都对不上。直接按出现顺序重编。
+        if cur_section is not None:
+            used = {pt["num"] for pt in cur_section["points"]}
+            if num in used:
+                mx = max(used) if used else 0
+                while num in used:
+                    mx += 1
+                    num = mx
+
         if cur_section is None:
             if sections:
                 # 章里已经有节了 → 这个考点出现在第一个节标题之前
@@ -506,7 +520,14 @@ def build_chapter(volume_key: str, pages: list, meta: dict) -> dict:
     for p in pages:
         n = 0
         for line in strip_running(p["text"]).split("\n"):
-            if HOT_POINT.match(line.strip()) or HOT_POINT_LOOSE.match(line.strip()):
+            st = line.strip()
+            # 两种框架页：
+            #   经济法/税法：考点标题带「5年热点N次」
+            #   战略      ：「考点 01）公司战略的定义」—— **没有热点标记**
+            # 都不加的话，框架页的考点会被当正文考点建一遍，
+            # 导致同一节里考点号重复（战略 ch01 第2节出现 1,3,2,1,3,2）。
+            if (HOT_POINT.match(st) or HOT_POINT_LOOSE.match(st)
+                    or re.match(r"^考点\s*\d{1,2}\s*[)）]?", st)):
                 n += 1
         if n >= 3:
             framework_pages.add(p["seq"])

@@ -86,6 +86,11 @@ def main() -> int:
             ocr_pages[p["file"]] = p
         print(f"  OCR 结果：{len(ocr_pages)} 页")
 
+    # 册目录可能不存在 —— 比如战略只有上/下两册，没有中册。
+    if not os.path.isdir(pages_dir):
+        print(f"  （{os.path.basename(pages_dir)} 册不存在，跳过）")
+        return 0
+
     files = sorted(f for f in os.listdir(pages_dir) if f.endswith(".pdf"))
     pages = []
     n_ocr = 0

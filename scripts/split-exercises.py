@@ -338,6 +338,9 @@ def main():
     a_pages = defaultdict(list)
     for vol in ("up", "mid", "down"):
         d = f"{WORK}/pdf-pages/{vol}"
+        # 册目录可能不存在（战略只有上/下两册）
+        if not os.path.isdir(d):
+            continue
         for f in sorted(os.listdir(d)):
             if not f.endswith(".pdf"):
                 continue

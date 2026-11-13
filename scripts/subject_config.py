@@ -18,6 +18,8 @@ SUBJECT_COLOR = os.environ.get("SUBJECT_COLOR", {
     "sts": "#0b7a4b",   # 税法 · 绿
     "eco": "#6b3ba8",   # 经济法 · 紫
     "kj": "#9a5b00",    # 会计 · 橙
+    "sj": "#0e7490",    # 审计 · 青
+    "zl": "#b0455a",    # 战略 · 玫红
 }.get(SUBJECT_ID, "#2f5fd0"))
 
 # 卷册 → 科目块目录名（切块产物放在 build/blocks/<科目名>/）

@@ -72,6 +72,32 @@ SUBJECTS = {
 # 预加载 pages.json 的文字块（原生文字层 + OCR 合并结果）
 _PAGE_BLOCKS = {}
 
+# OCR 坐标表（扫描版 PDF 没有原生文字层时用）
+_OCR_BLOCKS: dict = {}
+
+
+def load_ocr_blocks(ocr_json) -> int:
+    # 载入 Vision OCR 的坐标表（text + x/y/size），返回页数。
+    #
+    # 为什么需要：
+    #   扫描版教材（会计/税法/经济法/战略）的 PDF **没有原生文字层**，
+    #   pypdf 的 visitor 拿不到任何文字 → 找不到「考点NN」「【例题N】」
+    #   这些切分点 → 只能整页切，考点级结构全丢。
+    _OCR_BLOCKS.clear()
+    if not ocr_json or not os.path.exists(ocr_json):
+        return 0
+    try:
+        data = json.load(open(ocr_json, encoding="utf-8"))
+    except Exception as exc:
+        print(f"  OCR 读取失败：{exc}")
+        return 0
+    for p in data.get("pages", []):
+        fname = os.path.basename(p.get("file", ""))
+        blocks = p.get("blocks") or []
+        if fname and blocks:
+            _OCR_BLOCKS[fname] = blocks
+    return len(_OCR_BLOCKS)
+
 
 def load_page_blocks(text_dir):
     """
@@ -119,7 +145,44 @@ def page_items(path, text_dir=None):
     fname = os.path.basename(path)
     merged = _PAGE_BLOCKS.get(fname)
     if merged:
+        # **大尺寸页面要归一化坐标**。
+        #
+        # pages.json 里存的是「原生文字层优先、OCR 兜底」的 blocks，
+        # 坐标是 PDF 原始坐标。扫描版按 300dpi 输出，页面高 2339，
+        # 而 CONTENT_TOP/CONTENT_BOTTOM 是按 A4（高 842）写死的
+        # → 所有块的 y 都在 1900 上下，全被过滤掉 → 一页都找不到切分点。
+        #
+        # 页面高度明显不是 A4 时，按实际高度缩放到 842 坐标系。
+        if H > 900:
+            scale = 842.0 / H
+            merged = [
+                {**b, "y": float(b.get("y", 0)) * scale,
+                 "size": float(b.get("size", 10)) * scale}
+                for b in merged
+            ]
         return r, page, W, H, merged
+
+    # 原生文字层是空的（扫描版）→ 用 OCR 坐标
+    if len(items) < 3 and _OCR_BLOCKS:
+        ocr_items = _OCR_BLOCKS.get(fname)
+        if ocr_items:
+            # **坐标归一化到 A4 坐标系**。
+            #
+            # CONTENT_TOP / CONTENT_BOTTOM 是按 A4（高 842）写死的页眉页脚边界，
+            # 但扫描版 PDF 是按 300dpi 输出的 —— 页面高度 2339，
+            # 所有 OCR 块的 y 都在 1900 上下 → 全被
+            # `CONTENT_BOTTOM < y < CONTENT_TOP` 过滤掉 →
+            # 一页都找不到切分点 → 退化成「整页切一块」，考点级切分全丢。
+            #
+            # 所以按页面实际高度把 y 和字号缩放到 842 的坐标系。
+            scale = 842.0 / H if H else 1.0
+            norm = []
+            for b in ocr_items:
+                bb = dict(b)
+                bb["y"] = float(b.get("y", 0)) * scale
+                bb["size"] = float(b.get("size", 10)) * scale
+                norm.append(bb)
+            return r, page, W, H, norm
 
     return r, page, W, H, items
 
@@ -131,6 +194,21 @@ def find_boundaries(items):
     返回按 y 降序排列的边界列表：
       {y, kind: 'point'|'example', label, num}
     """
+    # 框架页判定：一页里有多个「考点NN」标题 = 章首的考点框架页。
+    #
+    # 框架页把本章所有考点列一遍，正文没有对应的「考点NN」小标题。
+    # 如果把它也当成考点边界切出来，这些**框架块的序号会插在正文块中间**，
+    # 归并时「章内第 N 个块 ↔ 章内第 N 个考点」的对应就全错位了
+    # （战略：112 个考点只有 43 个能挂到块）。
+    #
+    # 所以框架页上不切 point 边界（只切其他边界）。
+    n_point_titles = sum(
+        1 for it in items
+        if POINT_TITLE.match(it["text"].strip())
+        and CONTENT_BOTTOM < it["y"] < CONTENT_TOP
+    )
+    is_framework = n_point_titles >= 3
+
     marks = []
     for it in items:
         t = it["text"].strip()
@@ -138,7 +216,7 @@ def find_boundaries(items):
         if not (CONTENT_BOTTOM < y < CONTENT_TOP):
             continue
         size = it.get("size") or 11.0
-        if POINT_TITLE.match(t):
+        if POINT_TITLE.match(t) and not is_framework:
             m2 = POINT_TITLE.match(t)
             num = int(m2.group(1)) if m2.groups() else None
             marks.append({"y": y, "size": size, "kind": "point", "label": t, "num": num})
@@ -265,6 +343,9 @@ def main():
         vdir = os.path.join(pages_root, vol)
         if not os.path.isdir(vdir):
             continue
+        # OCR 坐标回退：扫描版 PDF 没有原生文字层，
+        # 用 Vision OCR 的坐标当切分点依据（每册一份，册内文件名唯一）。
+        load_ocr_blocks(os.path.join(WORK, "ocr", f"{vol}.json"))
         subject = SUBJECTS[vol]
         sdir = os.path.join(out_root, subject)
         os.makedirs(sdir, exist_ok=True)

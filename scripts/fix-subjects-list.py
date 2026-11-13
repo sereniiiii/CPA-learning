@@ -18,6 +18,7 @@ KNOWN = {
     "eco": {"name": "经济法", "color": "#6b3ba8", "volumeCount": 3},
     "kj": {"name": "会计", "color": "#9a5b00", "volumeCount": 3},
     "sj": {"name": "审计", "color": "#0e7490", "volumeCount": 3},
+    "zl": {"name": "战略", "color": "#b0455a", "volumeCount": 2},
 }
 
 
