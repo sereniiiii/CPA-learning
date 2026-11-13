@@ -65,7 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (kind === 'subjectiveTopic') {
         const id = typeof req.query.id === 'string' ? req.query.id : ''
-        if (!/^topic\d{2}$/.test(id)) return res.status(400).json({ error: '非法的专题 ID' })
+        // topicNN = 教材的主观题集训；dqNN = 轻二大题篇
+        if (!/^(topic|dq)\d{2}$/.test(id)) return res.status(400).json({ error: '非法的专题 ID' })
         const text = await readFile(`data/subjects/${subject}/subjectives/${id}.json`)
         if (!text) return res.status(404).json({ error: '专题不存在' })
         res.setHeader('Cache-Control', 'private, max-age=600')
