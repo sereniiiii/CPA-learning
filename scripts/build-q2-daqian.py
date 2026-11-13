@@ -131,6 +131,7 @@ def main() -> int:
                 "source": t["source"],
                 "pageCount": len(t["pages"]),
                 "hasAnswer": t["hasAnswer"],
+                "sourceLevel": t.get("sourceLevel", "轻二·大题篇"),
             }
             for t in topics
         ]

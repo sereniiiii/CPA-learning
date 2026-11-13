@@ -20,17 +20,19 @@ import { LibraryView } from './views/LibraryView'
 import { TodayView } from './views/TodayView'
 import { PointView } from './views/PointView'
 import { SubjectiveView } from './views/SubjectiveView'
+import { PapersView } from './views/PapersView'
 import { ArchiveView, ReviewView, WrongBookView } from './views/ReviewView'
 import { MyNotes } from './views/MyNotes'
 import { AnnotationPanel } from './views/AnnotationPanel'
 import { SubjectSwitcher } from './views/SubjectSwitcher'
 
-type Tab = 'today' | 'library' | 'subjective' | 'anno' | 'review' | 'wrong' | 'archive' | 'notes'
+type Tab = 'today' | 'library' | 'subjective' | 'papers' | 'anno' | 'review' | 'wrong' | 'archive' | 'notes'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'today', label: '全书概览' },
   { id: 'library', label: '教材库' },
   { id: 'subjective', label: '主观题' },
+  { id: 'papers', label: '模考' },
   { id: 'anno', label: '批注' },
   { id: 'review', label: '复习' },
   { id: 'wrong', label: '错题本' },
@@ -366,6 +368,10 @@ export default function App() {
               userData={userData}
               onUserDataChange={setUserData}
             />
+          </div>
+        ) : tab === 'papers' ? (
+          <div className="split">
+            <PapersView subjectId={subjectId} />
           </div>
         ) : tab === 'anno' ? (
           <AnnotationPanel

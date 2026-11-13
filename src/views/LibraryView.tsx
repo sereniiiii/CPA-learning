@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChapterMeta, SubjectLibrary, scopedPointId } from '../types'
 import { HotFlag } from './HotFlag'
+import { SourceTag } from './SourceTag'
 
 /**
  * 教材库视图：左侧目录树 + 右侧章节卡片。
@@ -188,6 +189,7 @@ function ChapterTree({
       >
         <span className="num">{meta.num}</span>
         <span style={{ flex: 1, minWidth: 0 }}>{meta.title}</span>
+        <SourceTag level={meta.sourceLevel ?? '轻一'} compact />
         {meta.info.difficulty && (
           <span className={`mini-badge m-${meta.info.difficulty}`}>
             {meta.info.difficulty}

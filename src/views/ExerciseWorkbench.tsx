@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
+import { SourceTag } from './SourceTag'
 import { learningApi } from '../api'
 import { UserData } from '../types'
 import { RichEditor } from '../editor/Editor'
@@ -16,6 +17,13 @@ export interface ExerciseItem {
 export interface ExerciseGroup {
   chapterNum: number
   chapterTitle: string
+  /** 组标题（轻二·小题篇的专题名） */
+  title?: string
+  /**
+   * 资料来源：轻一 / 轻二·小题篇 / 轻二·套卷 / 轻三
+   * 界面上要标出来 —— 几套资料混在一起，不标会以为是一套。
+   */
+  sourceLevel?: string
   items: ExerciseItem[]
 }
 
@@ -107,8 +115,11 @@ export function ExerciseWorkbench({
                 key={gi}
                 className={`ex-tab${active ? ' is-active' : ''}`}
                 onClick={() => go(start)}
+                title={g.title}
               >
+                {g.title ? `${g.title} ` : ''}
                 {g.items.length}题
+                {g.sourceLevel && <SourceTag level={g.sourceLevel} compact />}
               </button>
             )
           })}

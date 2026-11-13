@@ -3554,3 +3554,61 @@ a { color: var(--blue); }
   background: var(--amber-soft);
   color: var(--amber);
 }
+
+/* ============================================================
+   资料来源标签 —— 区分轻一 / 轻二 / 轻三
+   ============================================================ */
+
+.source-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+
+.source-tag.is-compact {
+  font-size: 9.5px;
+  line-height: 15px;
+  padding: 0 4px;
+}
+
+/* 轻一 · 教材正文 —— 主色系 */
+.source-tag.tone-1 {
+  background: rgba(47, 95, 208, 0.10);
+  color: #2f5fd0;
+  border-color: rgba(47, 95, 208, 0.28);
+}
+
+/* 轻二·大题篇 —— 橙 */
+.source-tag.tone-2 {
+  background: rgba(196, 110, 20, 0.12);
+  color: #b36a14;
+  border-color: rgba(196, 110, 20, 0.30);
+}
+
+/* 轻二·小题篇 —— 青 */
+.source-tag.tone-3 {
+  background: rgba(14, 116, 144, 0.12);
+  color: #0e7490;
+  border-color: rgba(14, 116, 144, 0.30);
+}
+
+/* 轻二·套卷 —— 紫 */
+.source-tag.tone-4 {
+  background: rgba(107, 59, 168, 0.12);
+  color: #6b3ba8;
+  border-color: rgba(107, 59, 168, 0.30);
+}
+
+/* 轻三 · 冲刺卷 —— 红 */
+.source-tag.tone-5 {
+  background: rgba(176, 69, 90, 0.12);
+  color: #b0455a;
+  border-color: rgba(176, 69, 90, 0.30);
+}

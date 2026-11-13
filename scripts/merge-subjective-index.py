@@ -25,23 +25,30 @@ def main() -> int:
 
     topics = []
 
-    # 教材的主观题（export-subjectives 产的 index.json）
+    # 教材的主观题
+    #
+    # **从 topic*.json 文件重建，不读 index.json** ——
+    # index.json 会被 build-q2-daqian.py 覆盖成大题篇的索引，
+    # 读它会把大题篇当成教材（id 全变成 dq01…）。
     idx_path = os.path.join(d, "index.json")
-    if os.path.exists(idx_path):
+    for fname in sorted(os.listdir(d)):
+        if not (fname.startswith("topic") and fname.endswith(".json")):
+            continue
         try:
-            data = json.load(open(idx_path, encoding="utf-8"))
-            for t in data.get("topics", []):
-                topics.append({
-                    "id": t["id"],
-                    "num": t.get("num", 0),
-                    "title": t["title"],
-                    "source": t.get("source", {}),
-                    "pageCount": t.get("pageCount", 0),
-                    "hasAnswer": False,
-                    "group": "教材主观题",
-                })
+            t = json.load(open(os.path.join(d, fname), encoding="utf-8"))
         except Exception as e:
-            print(f"  ⚠️ 教材索引读取失败：{e}")
+            print(f"  ⚠️ {fname} 读取失败：{e}")
+            continue
+        topics.append({
+            "id": t["id"],
+            "num": t.get("num", 0),
+            "title": t["title"],
+            "source": t.get("source", {}),
+            "pageCount": len(t.get("pages", [])),
+            "hasAnswer": False,
+            "group": "教材主观题",
+            "sourceLevel": "轻一",
+        })
 
     # 轻二大题篇
     dq = []
@@ -57,6 +64,7 @@ def main() -> int:
             "pageCount": len(t.get("pages", [])),
             "hasAnswer": t.get("hasAnswer", False),
             "group": "轻二大题篇",
+            "sourceLevel": t.get("sourceLevel", "轻二·大题篇"),
         })
     topics.extend(dq)
 

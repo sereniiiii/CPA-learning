@@ -56,6 +56,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).send(text)
       }
 
+      if (kind === 'papers') {
+        // 模考卷索引：轻三冲刺卷 / 轻二套卷
+        const text = await readFile(`data/subjects/${subject}/papers/index.json`)
+        if (!text) return res.status(404).json({ error: '模考卷未就绪' })
+        res.setHeader('Cache-Control', 'private, max-age=600')
+        return res.status(200).send(text)
+      }
+
+      if (kind === 'paper') {
+        const id = typeof req.query.id === 'string' ? req.query.id : ''
+        if (!/^[a-z0-9]{1,12}$/.test(id)) return res.status(400).json({ error: '非法的卷子 ID' })
+        const text = await readFile(`data/subjects/${subject}/papers/${id}.json`)
+        if (!text) return res.status(404).json({ error: '卷子不存在' })
+        res.setHeader('Cache-Control', 'private, max-age=600')
+        return res.status(200).send(text)
+      }
+
       if (kind === 'subjectiveIndex') {
         const text = await readFile(`data/subjects/${subject}/subjectives/index.json`)
         if (!text) return res.status(404).json({ error: '主观题集训未就绪' })

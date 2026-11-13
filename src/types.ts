@@ -69,6 +69,11 @@ export interface ChapterMeta {
   num: number
   title: string
   volume: string
+  /**
+   * 资料来源：轻一（教材正文）/ 轻二·套卷 / 轻三 等。
+   * 界面上要标出来 —— 几套资料混在一起，不标会以为是一套。
+   */
+  sourceLevel?: string
   info: ChapterInfo
   sections: SectionMeta[]
 }
@@ -91,6 +96,10 @@ export interface ExerciseItem {
 /** 习题题组（教材里一组题，题号 1..N） */
 export interface ExerciseGroup {
   chapterNum: number
+  /** 组标题（轻二·小题篇的专题名） */
+  title?: string
+  /** 资料来源：轻一 / 轻二·小题篇 / 轻二·套卷 / 轻三 */
+  sourceLevel?: string
   chapterTitle: string
   items: ExerciseItem[]
 }

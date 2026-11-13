@@ -38,6 +38,10 @@ for spec in "cwc:财管" "eco:经济法" "sts:税法" "kj:会计" "sj:审计" "z
     mkdir -p "data/subjects/$S/subjectives"
     cp "$SRC/subjectives/"*.json "data/subjects/$S/subjectives/"
   fi
+  if [ -d "$SRC/papers" ]; then
+    mkdir -p "data/subjects/$S/papers"
+    cp "$SRC/papers/"*.json "data/subjects/$S/papers/"
+  fi
 
   # 块图：先找子目录，找不到就用根目录（财管是根目录布局）
   BLOCK_DIR="$ROOT/build/$S/blocks/$N"

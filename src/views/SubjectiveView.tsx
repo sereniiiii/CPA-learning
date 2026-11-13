@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { learningApi } from '../api'
+import { SourceTag } from './SourceTag'
 import { UserData } from '../types'
 import { RichEditor } from '../editor/Editor'
 
@@ -7,6 +8,10 @@ interface Topic {
   id: string
   num: number
   title: string
+  /** 资料来源：轻二·大题篇 / 轻一 */
+  sourceLevel?: string
+  /** 分组标签（教材主观题 vs 轻二大题篇） */
+  group?: string
   source: { volume: string; pdfPage: number; printPage: number }
   pageCount: number
 }
@@ -123,6 +128,7 @@ export function SubjectiveView({
               >
                 <span className="num">{t.num}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>{t.title}</span>
+                <SourceTag level={t.sourceLevel} compact />
                 {note?.rating === 'correct' && <span className="mini-badge m-易">✓</span>}
                 {note?.rating === 'partial' && <span className="mini-badge m-中">半</span>}
                 {note?.rating === 'none' && <span className="mini-badge m-难">未</span>}

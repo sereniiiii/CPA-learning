@@ -245,6 +245,9 @@ def main():
         "chapters": [
             {
                 "id": c["id"], "num": c["num"], "title": c["title"], "volume": c["volume"],
+                # 资料来源：教材正文是「轻一」。轻二/轻三 的内容会挂在别的位置，
+                # 界面上要一眼看出这块内容出自哪本书。
+                "sourceLevel": c.get("sourceLevel", "轻一"),
                 "info": c["info"],
                 "sections": [
                     {
@@ -297,6 +300,7 @@ def main():
 
     for ch in book["chapters"]:
         detail = json.loads(json.dumps(ch))
+        detail["sourceLevel"] = ch.get("sourceLevel", "轻一")
         # 章末习题页的块（命名规则与 split-exercise-pages.py 一致）
         for ex in detail.get("exercises", []):
             vol = VOL[ch["volume"]]
